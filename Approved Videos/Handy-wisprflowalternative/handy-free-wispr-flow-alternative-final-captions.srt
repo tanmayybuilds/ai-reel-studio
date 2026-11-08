@@ -1,0 +1,51 @@
+1
+00:00:00,000 --> 00:00:02,440
+Abhi bhi haath se type kar rahe ho? To ye suno.
+
+2
+00:00:02,440 --> 00:00:06,680
+Wispr Flow ke 15 dollar nahi bharne? Aaja, tereko open source alternative batata hoon.
+
+3
+00:00:06,680 --> 00:00:08,760
+To is repository ka naam hai Handy.
+
+4
+00:00:08,760 --> 00:00:12,720
+Handy ek aisa open source tool hai, jo completely Wispr Flow ki tarah hai.
+
+5
+00:00:12,720 --> 00:00:14,560
+But iski ek bahut badi khaasiyat hai.
+
+6
+00:00:14,560 --> 00:00:16,640
+Ye poori tarah se aapke laptop pe chalta hai.
+
+7
+00:00:16,640 --> 00:00:19,880
+Koi API credit nahi. Kisi ko bhi aapka data nahi jaa raha.
+
+8
+00:00:19,880 --> 00:00:22,080
+Completely sirf aur sirf aapke laptop pe.
+
+9
+00:00:22,080 --> 00:00:26,520
+Is mein milti aapko complete privacy aur Wispr Flow ke level ki voice typing.
+
+10
+00:00:26,520 --> 00:00:31,200
+Ise setup karna bahut aasaan hai, iski GitHub repo pe chale jao, ise install kar lo.
+
+11
+00:00:31,200 --> 00:00:34,960
+Aur phir bas kuch hi steps ke baad aapka Handy bilkul ready to use ho jaayega.
+
+12
+00:00:34,960 --> 00:00:38,040
+Iska poora installation guide chahiye? Comment kar do "Guide".
+
+13
+00:00:38,040 --> 00:00:41,680
+Iski poori repository aur installation guide aapke DMs mein aa jaayega.

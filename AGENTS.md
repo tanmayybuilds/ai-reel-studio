@@ -6,6 +6,16 @@ Everything runs on the user's own computer. No API keys and no paid services are
 
 **If the user gave you only the link to this repo, read this whole file first, then follow Part A.**
 
+> **This is the `tanmay` branch: a pre-configured studio.** The creator profile (`studio.json`), brand kit (`Brand Kit/brand-kit.md`, with older kits in `Brand Kit/history/`), creator notes (`Brand Kit/creator-notes.md`), the new-reel prompt, reference studies and four approved reels (`Approved Videos/`) are already here, exactly as used in production.
+>
+> **Setup on this branch is short:**
+> 1. Clone with `git clone -b tanmay https://github.com/tanmayybuilds/ai-reel-studio.git "<folder>"`.
+> 2. From `setup/INTERVIEW.md`, ask **only the [always] questions** (Q1 install folder, Q2 permission to install system tools, Q3 optional extras, Q20 anything new), one at a time.
+> 3. Show the user a short summary of their existing profile (Romanized Hinglish two-tier captions, cyan accent, real room lightly blurred, layered SFX, storyboard first) and ask: *"Has anything changed?"* Update `studio.json` and the brand kit only if they say so, and save the old kit in `Brand Kit/history/` first.
+> 4. Install (step A4), skip A5 except for references the user newly gives you, run the smoke test (A6), and report (A7).
+>
+> The template already ships the cyan accent, so do **not** run `set_accent.py` unless the user asks for a new colour.
+
 ---
 
 ## Which part to follow

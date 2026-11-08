@@ -8,9 +8,7 @@ References/*
 Start Storyboard.cmd
 start-storyboard.sh
 
-# Approved videos are kept out of main; a creator branch may un-ignore them.
-Approved Videos/*
-!Approved Videos/README.md
+# tanmay branch: the approved reels are tracked here, because they are the house-style examples.
 
 # --- Installed tools (re-created by setup/install.*) ---
 Tools/node_modules/

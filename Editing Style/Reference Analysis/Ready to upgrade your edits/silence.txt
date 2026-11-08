@@ -1,0 +1,2 @@
+﻿silence_start: 0
+silence_end: 0.144172 | silence_duration: 0.144172

@@ -1,0 +1,51 @@
+1
+00:00:00,000 --> 00:00:03,400
+Bhai ye repository galti se kisi galat aadmi ke haath na lag jaaye.
+
+2
+00:00:03,400 --> 00:00:06,960
+Kyunki is repository ka use karke aap kisi ka bhi voice clone kar sakte ho.
+
+3
+00:00:06,960 --> 00:00:12,040
+Chahe wo aap ho jao, ya aapke family members ho jaayein, ya aapke friends ho jaayein. Kisi ka bhi.
+
+4
+00:00:12,040 --> 00:00:18,800
+To bhai ye hai VoiceStudio. Ye ek aisi GitHub repository hai jiske help se aap kisi bhi awaaz ko easily clone kar sakte ho.
+
+5
+00:00:18,800 --> 00:00:22,520
+Aur iski sabse badi baat, ye completely open source aur free hai.
+
+6
+00:00:22,520 --> 00:00:25,000
+Upar se iske liye koi API key ki need nahi hai.
+
+7
+00:00:25,000 --> 00:00:26,600
+Ye aapke laptop par hi chalta hai.
+
+8
+00:00:26,600 --> 00:00:29,560
+Aur iske andar bhi bahut saare voices already available hain.
+
+9
+00:00:29,560 --> 00:00:32,920
+Agar aapko story ke liye chahiye, to aap voice generate bhi kara sakte ho.
+
+10
+00:00:32,920 --> 00:00:36,000
+Is GitHub repository pe jao, wahan se ise install karo.
+
+11
+00:00:36,000 --> 00:00:38,440
+Ye aapke laptop ko verify karega.
+
+12
+00:00:38,440 --> 00:00:40,200
+Aur phir bas cloning chalu kar do.
+
+13
+00:00:40,200 --> 00:00:44,800
+Agar iska link chahiye to comment kar do link, aur poora setup guide aapke DM mein aa jaayega.

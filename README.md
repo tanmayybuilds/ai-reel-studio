@@ -1,5 +1,15 @@
 # AI Reel Studio
 
+> **You are on the `tanmay` branch:** Tanmay Builds' own studio, pre-configured with the brand kit, creator notes, editing style, reference studies and four approved reels (`Approved Videos/`). To set it up on a new computer, give your agent:
+>
+> ```
+> Set up my AI reel editing studio from https://github.com/tanmayybuilds/ai-reel-studio/tree/tanmay
+> Clone the tanmay branch, read AGENTS.md (the tanmay-branch box at the top), ask me only the workstation
+> questions one at a time, install everything, run the smoke test, then tell me how to edit my next video.
+> ```
+>
+> For a blank studio with the full guided interview, use the [`main` branch](https://github.com/tanmayybuilds/ai-reel-studio).
+
 A local, AI-operated video-editing studio for talking-head reels. Give an AI coding agent (Claude Code, Codex, Cursor, Gemini CLI and others) the link to this repo. It installs everything, interviews you about your brand and style, and then edits your raw recordings into finished vertical reels, for Instagram Reels, YouTube Shorts and TikTok.
 
 - **Best takes, automatically:** every retake of every line is transcribed and compared, and the best one is used.

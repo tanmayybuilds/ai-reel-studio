@@ -1,0 +1,14 @@
+silence_start: 1.414625
+silence_end: 1.628333 | silence_duration: 0.213708
+silence_start: 4.253771
+silence_end: 4.639687 | silence_duration: 0.385917
+silence_start: 10.578938
+silence_end: 10.722667 | silence_duration: 0.143729
+silence_start: 17.939104
+silence_end: 18.180937 | silence_duration: 0.241833
+silence_start: 23.813125
+silence_end: 24.123708 | silence_duration: 0.310583
+silence_start: 29.860271
+silence_end: 30.025771 | silence_duration: 0.1655
+silence_start: 36.652563
+silence_end: 36.825375 | silence_duration: 0.172813

@@ -1,0 +1,43 @@
+1
+00:00:00,000 --> 00:00:02,840
+Editor ho, aur abhi bhi manually captions type karte ho?
+
+2
+00:00:02,840 --> 00:00:04,400
+Bhai kis zamaane mein jee rahe ho?
+
+3
+00:00:04,400 --> 00:00:10,120
+To aaj main leke aaya hoon aap logon ke liye ek aisi website, jiske upar aap jaake completely free mein captions generate kar sakte ho.
+
+4
+00:00:10,120 --> 00:00:13,400
+Aur iske upar itne saare options hain,
+
+5
+00:00:13,400 --> 00:00:18,520
+Bilkul Premiere Pro, After Effects level ke captions aap easily generate karwa sakte ho.
+
+6
+00:00:18,520 --> 00:00:20,880
+To bhai is website ka naam hai Whitestair.
+
+7
+00:00:20,880 --> 00:00:24,680
+Kuch nahi, bas aapko is website pe jaana hai, aapko apni clip upload karni hai.
+
+8
+00:00:24,680 --> 00:00:26,520
+Aur phir bas ek template choose karna hai.
+
+9
+00:00:26,520 --> 00:00:31,800
+Ye website aapke poore video ka transcript nikalegi aur usi hisaab se captions lagayegi.
+
+10
+00:00:31,800 --> 00:00:34,960
+Aur phir bas kuch hi minutes mein video export karne ke liye taiyaar.
+
+11
+00:00:34,960 --> 00:00:38,120
+To comment kar do "Captions", link main aapke DM mein bhej dunga.
