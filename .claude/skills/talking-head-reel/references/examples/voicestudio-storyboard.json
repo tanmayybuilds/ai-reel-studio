@@ -1,0 +1,1682 @@
+{
+  "title": "VoiceStudio Reel — reference cut",
+  "video": "media/rough-cut.mp4",
+  "beats": [
+    {
+      "id": "beat-02",
+      "title": "Hook: danger line",
+      "scene": "aroll",
+      "spoken": "Bhai ye repository galti se kisi galat aadmi ke haath na lag jaaye.",
+      "camera": [
+        [
+          0,
+          0.64,
+          0
+        ],
+        [
+          0.1,
+          0.72,
+          3.2
+        ]
+      ],
+      "cameraNote": "Tum neeche, upar repo scroll. Slow zoom in poore clip mein.",
+      "graphics": [
+        [
+          "Bhai ye repository",
+          "Asli README scroll + BHAI YE REPOSITORY ticker + stars 98.7k tak count up"
+        ],
+        [
+          "galat aadmi",
+          "Neeche caption, bada red word"
+        ]
+      ],
+      "assets": [
+        {
+          "label": "README scroll, Repo-screen-recording.mp4",
+          "file": "assets/repo-scroll.jpg"
+        }
+      ],
+      "overlays": [
+        {
+          "type": "repoScroll",
+          "in": 0,
+          "out": 3.4,
+          "src": "assets/repo-scroll.jpg",
+          "text": "BHAI YE REPOSITORY",
+          "from": 2080,
+          "to": 3040,
+          "stars": 98.7
+        },
+        {
+          "type": "cap",
+          "in": 1.16,
+          "out": 3.4,
+          "y": 1370,
+          "lead": [
+            [
+              "galti",
+              1.16
+            ],
+            [
+              "se",
+              1.41
+            ],
+            [
+              "kisi",
+              1.48
+            ]
+          ],
+          "word": "GALAT AADMI",
+          "wordAt": 1.64,
+          "tone": "red",
+          "tail": [
+            [
+              "ke",
+              2.24
+            ],
+            [
+              "haath",
+              2.32
+            ],
+            [
+              "na",
+              2.51
+            ],
+            [
+              "lag",
+              2.68
+            ],
+            [
+              "jaaye",
+              2.92
+            ]
+          ]
+        }
+      ],
+      "start": 0.0,
+      "end": 3.4,
+      "duration": 3.4,
+      "segments": [
+        [
+          90.42,
+          93.82
+        ]
+      ],
+      "syncOffset": 2.4885,
+      "faceY": 1010,
+      "noBlur": true
+    },
+    {
+      "id": "beat-03",
+      "title": "Kyunki: voice clone",
+      "scene": "aroll",
+      "spoken": "Kyunki is repository ka use karke aap kisi ka bhi voice clone kar sakte ho.",
+      "camera": [
+        [
+          0,
+          0.68,
+          0
+        ],
+        [
+          2.3,
+          0.9,
+          0.22
+        ]
+      ],
+      "cameraNote": "Wide start, \"voice clone\" pe tez zoom in.",
+      "graphics": [
+        [
+          "is repository",
+          "Asli VoiceStudio app window tilt ke saath rise hota hai"
+        ],
+        [
+          "voice clone",
+          "Indigo word ke saath live waveform badge"
+        ]
+      ],
+      "assets": [
+        {
+          "label": "App window, voice-cloning.png",
+          "file": "assets/app.jpg"
+        }
+      ],
+      "overlays": [
+        {
+          "type": "appWindow",
+          "in": 0,
+          "out": 1.46,
+          "src": "assets/app.jpg",
+          "x": 80,
+          "y": 960,
+          "w": 920
+        },
+        {
+          "type": "cap",
+          "in": 0.03,
+          "out": 1.46,
+          "y": 850,
+          "lead": [
+            [
+              "Kyunki",
+              0.03
+            ],
+            [
+              "is",
+              0.25
+            ],
+            [
+              "repository",
+              0.38
+            ],
+            [
+              "ka",
+              0.95
+            ],
+            [
+              "use",
+              1.05
+            ],
+            [
+              "karke",
+              1.28
+            ]
+          ]
+        },
+        {
+          "type": "cap",
+          "in": 1.46,
+          "out": 3.56,
+          "lead": [
+            [
+              "aap",
+              1.46
+            ],
+            [
+              "kisi",
+              1.66
+            ],
+            [
+              "ka",
+              1.78
+            ],
+            [
+              "bhi",
+              1.85
+            ]
+          ],
+          "word": "VOICE CLONE",
+          "wordAt": 2.34,
+          "tone": "indigo",
+          "tail": [
+            [
+              "kar",
+              3.05
+            ],
+            [
+              "sakte",
+              3.16
+            ],
+            [
+              "ho",
+              3.36
+            ]
+          ]
+        },
+        {
+          "type": "waveBadge",
+          "in": 2.44,
+          "out": 3.56,
+          "x": 835,
+          "y": 1300
+        }
+      ],
+      "start": 3.4,
+      "end": 6.96,
+      "duration": 3.56,
+      "segments": [
+        [
+          104.75,
+          108.33
+        ]
+      ],
+      "syncOffset": 2.4885
+    },
+    {
+      "id": "beat-04",
+      "title": "Kisi ka bhi",
+      "scene": "aroll",
+      "spoken": "Chahe wo aap ho jao, ya aapke family members ho jaayein, ya aapke friends ho jaayein. Kisi ka bhi.",
+      "camera": [
+        [
+          0,
+          0.66,
+          0
+        ],
+        [
+          3.84,
+          0.92,
+          0.22
+        ]
+      ],
+      "cameraNote": "Wide, taaki tiles ko jagah mile. \"Kisi ka bhi\" pe zoom in.",
+      "graphics": [
+        [
+          "aap",
+          "White tile"
+        ],
+        [
+          "family members",
+          "White tile"
+        ],
+        [
+          "friends",
+          "White tile"
+        ],
+        [
+          "kisi ka bhi",
+          "Poori width ki tile (reference 21 to 25s wala list treatment)"
+        ]
+      ],
+      "assets": [],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0.06,
+          "out": 1.28,
+          "y": 1000,
+          "lead": [
+            [
+              "Chahe",
+              0.06
+            ],
+            [
+              "wo",
+              0.25
+            ]
+          ]
+        },
+        {
+          "type": "cap",
+          "in": 1.28,
+          "out": 2.78,
+          "y": 1000,
+          "lead": [
+            [
+              "ya",
+              1.28
+            ],
+            [
+              "aapke",
+              1.36
+            ]
+          ]
+        },
+        {
+          "type": "cap",
+          "in": 2.78,
+          "out": 3.84,
+          "y": 1000,
+          "lead": [
+            [
+              "ya",
+              2.78
+            ],
+            [
+              "aapke",
+              2.84
+            ]
+          ]
+        },
+        {
+          "type": "tiles",
+          "in": 0.42,
+          "out": 5.08,
+          "y": 1090,
+          "items": [
+            {
+              "text": "Aap",
+              "at": 0.42
+            },
+            {
+              "text": "Family members",
+              "at": 1.62
+            },
+            {
+              "text": "Friends",
+              "at": 3.08,
+              "row": 1
+            },
+            {
+              "text": "Kisi ka bhi",
+              "at": 3.84,
+              "row": 2,
+              "hot": true
+            }
+          ]
+        }
+      ],
+      "start": 6.96,
+      "end": 12.04,
+      "duration": 5.08,
+      "segments": [
+        [
+          111.0,
+          114.92
+        ],
+        [
+          115.18,
+          116.33
+        ]
+      ],
+      "syncOffset": 2.4885
+    },
+    {
+      "id": "beat-05",
+      "title": "Naam ka reveal",
+      "scene": "white",
+      "spoken": "To bhai ye hai VoiceStudio. Ye ek aisi GitHub repository hai jiske help se aap kisi bhi awaaz ko easily clone kar sakte ho.",
+      "camera": [
+        [
+          0,
+          0.7,
+          0
+        ],
+        [
+          5.1,
+          0.9,
+          0.22
+        ]
+      ],
+      "cameraNote": "Pehle white board, phir tum wapas, \"easily clone\" pe punch-in. \"Kisi bhi\" ka stumble board ke peeche kata hai.",
+      "graphics": [
+        [
+          "VoiceStudio",
+          "Word reveal"
+        ],
+        [
+          "GitHub repository",
+          "Asli README card slot mein"
+        ],
+        [
+          "jiske help se",
+          "Asli waveform card doosre slot mein"
+        ],
+        [
+          "easily clone",
+          "Tum wapas, bada indigo word"
+        ]
+      ],
+      "assets": [
+        {
+          "label": "README, Repo-screen-recording.mp4 @ 0:05",
+          "file": "assets/readme.jpg"
+        },
+        {
+          "label": "Voice sample, voice-cloning.png",
+          "file": "assets/sample.jpg"
+        }
+      ],
+      "overlays": [
+        {
+          "type": "white",
+          "in": 0,
+          "out": 4.18
+        },
+        {
+          "type": "cap",
+          "in": 0.04,
+          "out": 4.18,
+          "ink": true,
+          "y": 340,
+          "lead": [
+            [
+              "To",
+              0.04
+            ],
+            [
+              "bhai",
+              0.13
+            ],
+            [
+              "ye",
+              0.36
+            ],
+            [
+              "hai",
+              0.49
+            ]
+          ],
+          "word": "VOICESTUDIO",
+          "wordAt": 0.55,
+          "tone": "indigo",
+          "tail": [
+            [
+              "ye",
+              1.43
+            ],
+            [
+              "ek",
+              1.49
+            ],
+            [
+              "aisi",
+              1.62
+            ],
+            [
+              "GitHub",
+              1.88
+            ],
+            [
+              "repository",
+              2.3
+            ],
+            [
+              "hai",
+              2.95
+            ]
+          ]
+        },
+        {
+          "type": "slotCard",
+          "in": 1.43,
+          "out": 4.18,
+          "src": "assets/readme.jpg",
+          "x": 70,
+          "y": 700,
+          "w": 940,
+          "h": 302
+        },
+        {
+          "type": "slotCard",
+          "in": 3.42,
+          "out": 4.18,
+          "src": "assets/sample.jpg",
+          "x": 70,
+          "y": 1040,
+          "w": 940,
+          "h": 215
+        },
+        {
+          "type": "cap",
+          "in": 3.2,
+          "out": 4.18,
+          "ink": true,
+          "y": 1300,
+          "lead": [
+            [
+              "jiske",
+              3.42
+            ],
+            [
+              "help",
+              3.64
+            ],
+            [
+              "se",
+              3.75
+            ],
+            [
+              "aap",
+              3.95
+            ]
+          ]
+        },
+        {
+          "type": "hand",
+          "in": 1.3,
+          "out": 2.4,
+          "from": [
+            980,
+            1500
+          ],
+          "to": [
+            560,
+            900
+          ],
+          "tap": 1.9
+        },
+        {
+          "type": "hand",
+          "in": 3.3,
+          "out": 4.18,
+          "from": [
+            980,
+            1600
+          ],
+          "to": [
+            830,
+            1120
+          ],
+          "tap": 3.75
+        },
+        {
+          "type": "cap",
+          "in": 4.18,
+          "out": 6.76,
+          "lead": [
+            [
+              "kisi",
+              4.2
+            ],
+            [
+              "bhi",
+              4.45
+            ],
+            [
+              "awaaz",
+              4.65
+            ],
+            [
+              "ko",
+              4.95
+            ]
+          ],
+          "word": "EASILY CLONE",
+          "wordAt": 5.1,
+          "tone": "indigo",
+          "tail": [
+            [
+              "kar",
+              6.0
+            ],
+            [
+              "sakte",
+              6.2
+            ],
+            [
+              "ho",
+              6.55
+            ]
+          ]
+        }
+      ],
+      "start": 12.04,
+      "end": 18.8,
+      "duration": 6.76,
+      "segments": [
+        [
+          49.33,
+          50.75
+        ],
+        [
+          51.1,
+          53.86
+        ],
+        [
+          54.5,
+          57.08
+        ]
+      ],
+      "syncOffset": 2.4885,
+      "blurAt": [
+        4.18
+      ]
+    },
+    {
+      "id": "beat-06",
+      "title": "Open source aur free",
+      "scene": "aroll",
+      "spoken": "Aur iski sabse badi baat, ye completely open source aur free hai.",
+      "camera": [
+        [
+          0,
+          0.72,
+          0
+        ],
+        [
+          2.92,
+          0.82,
+          0.2
+        ]
+      ],
+      "cameraNote": "Dheere start, \"free\" pe punch-in.",
+      "graphics": [
+        [
+          "sabse badi baat",
+          "Bada white word"
+        ],
+        [
+          "open source",
+          "Indigo card: </> aur asli AGPL-3.0 license"
+        ],
+        [
+          "free",
+          "Green card: ₹0, punch-in ke saath"
+        ]
+      ],
+      "assets": [],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0.02,
+          "out": 1.6,
+          "y": 930,
+          "lead": [
+            [
+              "Aur",
+              0.02
+            ],
+            [
+              "iski",
+              0.17
+            ]
+          ],
+          "word": "SABSE BADI BAAT",
+          "oneLine": true,
+          "wordAt": 0.42,
+          "tone": "white"
+        },
+        {
+          "type": "duo",
+          "in": 1.76,
+          "out": 3.72,
+          "y": 1250,
+          "items": [
+            {
+              "at": 2.32,
+              "tone": "indigo",
+              "big": "</>",
+              "label": "Open source",
+              "note": "AGPL-3.0"
+            },
+            {
+              "at": 2.92,
+              "tone": "green",
+              "big": "₹0",
+              "label": "Free",
+              "note": "Poora free"
+            }
+          ]
+        },
+        {
+          "type": "cap",
+          "in": 1.6,
+          "out": 2.92,
+          "y": 930,
+          "lead": [
+            [
+              "ye",
+              1.6
+            ],
+            [
+              "completely",
+              1.76
+            ]
+          ],
+          "word": "OPEN SOURCE",
+          "wordAt": 2.32,
+          "tone": "indigo"
+        },
+        {
+          "type": "cap",
+          "in": 2.92,
+          "out": 3.72,
+          "y": 930,
+          "lead": [
+            [
+              "aur",
+              2.84
+            ]
+          ],
+          "word": "FREE",
+          "wordAt": 2.92,
+          "tone": "green",
+          "tail": [
+            [
+              "hai",
+              3.28
+            ]
+          ]
+        }
+      ],
+      "start": 18.8,
+      "end": 22.52,
+      "duration": 3.72,
+      "segments": [
+        [
+          117.62,
+          121.33
+        ]
+      ],
+      "syncOffset": 2.4885
+    },
+    {
+      "id": "beat-07",
+      "title": "API key nahi",
+      "scene": "aroll",
+      "spoken": "Upar se iske liye koi API key ki need nahi hai.",
+      "camera": [
+        [
+          0,
+          0.76,
+          0
+        ],
+        [
+          0.1,
+          0.84,
+          2.3
+        ]
+      ],
+      "cameraNote": "Blur-in cut, halka slow zoom in.",
+      "graphics": [
+        [
+          "API key",
+          "Glass pill, red cross, word by word type"
+        ],
+        [
+          "need nahi",
+          "Glass pill, green check (reference 3 to 6s)"
+        ]
+      ],
+      "assets": [],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0.04,
+          "out": 0.96,
+          "y": 1090,
+          "lead": [
+            [
+              "Upar",
+              0.04
+            ],
+            [
+              "se",
+              0.28
+            ],
+            [
+              "iske",
+              0.36
+            ],
+            [
+              "liye",
+              0.6
+            ]
+          ]
+        },
+        {
+          "type": "pill",
+          "in": 0.96,
+          "out": 2.48,
+          "icon": "x",
+          "y": 1140,
+          "words": [
+            [
+              "API",
+              0.96
+            ],
+            [
+              "key",
+              1.15
+            ]
+          ]
+        },
+        {
+          "type": "pill",
+          "in": 1.44,
+          "out": 2.48,
+          "icon": "check",
+          "y": 1270,
+          "words": [
+            [
+              "Koi",
+              1.44
+            ],
+            [
+              "need",
+              1.55
+            ],
+            [
+              "nahi",
+              1.71
+            ]
+          ]
+        }
+      ],
+      "start": 22.52,
+      "end": 25.0,
+      "duration": 2.48,
+      "segments": [
+        [
+          121.6,
+          124.08
+        ]
+      ],
+      "syncOffset": 2.4885
+    },
+    {
+      "id": "beat-08",
+      "title": "Laptop par hi",
+      "scene": "aroll",
+      "spoken": "Ye aapke laptop par hi chalta hai.",
+      "camera": [
+        [
+          0,
+          0.7,
+          0
+        ],
+        [
+          0.39,
+          0.82,
+          0.2
+        ]
+      ],
+      "cameraNote": "\"Laptop\" pe punch-in.",
+      "graphics": [
+        [
+          "laptop",
+          "Asli local models list white card mein (reference 17s wala card)"
+        ]
+      ],
+      "assets": [
+        {
+          "label": "Local models, voicestudio-demo.mp4 @ 0:12",
+          "file": "assets/local.jpg"
+        }
+      ],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0.02,
+          "out": 1.6,
+          "y": 930,
+          "lead": [
+            [
+              "Ye",
+              0.02
+            ],
+            [
+              "aapke",
+              0.13
+            ]
+          ],
+          "word": "LAPTOP",
+          "wordAt": 0.39,
+          "tone": "indigo",
+          "tail": [
+            [
+              "par",
+              0.88
+            ],
+            [
+              "hi",
+              1.01
+            ],
+            [
+              "chalta",
+              1.14
+            ],
+            [
+              "hai",
+              1.34
+            ]
+          ]
+        },
+        {
+          "type": "panel",
+          "in": 0.42,
+          "out": 1.6,
+          "src": "assets/local.jpg",
+          "x": 80,
+          "y": 1270,
+          "w": 920
+        }
+      ],
+      "start": 25.0,
+      "end": 26.6,
+      "duration": 1.6,
+      "segments": [
+        [
+          124.22,
+          125.82
+        ]
+      ],
+      "syncOffset": 2.4885
+    },
+    {
+      "id": "beat-09",
+      "title": "Bahut saari voices",
+      "scene": "white",
+      "spoken": "Aur iske andar bhi bahut saare voices already available hain.",
+      "camera": [
+        [
+          0,
+          0.8,
+          0
+        ],
+        [
+          0,
+          0.8,
+          0
+        ]
+      ],
+      "cameraNote": "Poora screen B-roll. Reference 10 to 14s ka dashed board.",
+      "graphics": [
+        [
+          "bahut saare voices",
+          "Hand cursor chaar asli voice cards dashed slots mein daalta hai"
+        ]
+      ],
+      "assets": [
+        {
+          "label": "The Librarian",
+          "file": "assets/voice-librarian.jpg"
+        },
+        {
+          "label": "The Anchor",
+          "file": "assets/voice-anchor.jpg"
+        },
+        {
+          "label": "Captain Crusty",
+          "file": "assets/voice-crusty.jpg"
+        },
+        {
+          "label": "The Podcaster",
+          "file": "assets/voice-podcaster.jpg"
+        }
+      ],
+      "overlays": [
+        {
+          "type": "white",
+          "in": 0,
+          "out": 2.96
+        },
+        {
+          "type": "cap",
+          "in": 0.05,
+          "out": 2.96,
+          "ink": true,
+          "y": 210,
+          "lead": [
+            [
+              "Aur",
+              0.05
+            ],
+            [
+              "iske",
+              0.16
+            ],
+            [
+              "andar",
+              0.4
+            ],
+            [
+              "bhi",
+              0.72
+            ],
+            [
+              "bahut",
+              0.88
+            ],
+            [
+              "saare",
+              1.28
+            ]
+          ],
+          "word": "VOICES",
+          "wordAt": 1.44,
+          "tone": "indigo",
+          "tail": [
+            [
+              "already",
+              2.0
+            ],
+            [
+              "available",
+              2.26
+            ],
+            [
+              "hain",
+              2.68
+            ]
+          ]
+        },
+        {
+          "type": "slots",
+          "in": 0,
+          "out": 2.96,
+          "y": 660,
+          "items": [
+            {
+              "src": "assets/voice-librarian.jpg",
+              "at": 0.7
+            },
+            {
+              "src": "assets/voice-anchor.jpg",
+              "at": 1.15
+            },
+            {
+              "src": "assets/voice-crusty.jpg",
+              "at": 1.6
+            },
+            {
+              "src": "assets/voice-podcaster.jpg",
+              "at": 2.05
+            }
+          ]
+        }
+      ],
+      "start": 26.6,
+      "end": 29.56,
+      "duration": 2.96,
+      "segments": [
+        [
+          139.6,
+          142.55
+        ]
+      ],
+      "syncOffset": 2.4885
+    },
+    {
+      "id": "beat-10",
+      "title": "Story ke liye",
+      "scene": "aroll",
+      "spoken": "Agar aapko story ke liye chahiye, to aap voice generate bhi kara sakte ho.",
+      "camera": [
+        [
+          0,
+          0.7,
+          0
+        ],
+        [
+          2.08,
+          0.78,
+          0.25
+        ]
+      ],
+      "cameraNote": "Wide rakha hai taaki asli app card dikhe.",
+      "graphics": [
+        [
+          "story",
+          "Asli VoiceStudio script card: \"Every voice has a story.\""
+        ],
+        [
+          "voice generate",
+          "Hand asli Synthesize audio button dabata hai, waveform chalta hai"
+        ]
+      ],
+      "assets": [
+        {
+          "label": "Script, voice-cloning.png",
+          "file": "assets/script.jpg"
+        },
+        {
+          "label": "Synthesize button, voice-cloning.png",
+          "file": "assets/synth.jpg"
+        }
+      ],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0,
+          "out": 1.68,
+          "y": 950,
+          "lead": [
+            [
+              "Agar",
+              0
+            ],
+            [
+              "aapko",
+              0.28
+            ]
+          ],
+          "word": "STORY",
+          "wordAt": 0.51,
+          "tone": "indigo",
+          "tail": [
+            [
+              "ke",
+              0.84
+            ],
+            [
+              "liye",
+              0.94
+            ],
+            [
+              "chahiye",
+              1.05
+            ]
+          ]
+        },
+        {
+          "type": "cap",
+          "in": 1.68,
+          "out": 3.36,
+          "y": 950,
+          "lead": [
+            [
+              "to",
+              1.68
+            ],
+            [
+              "aap",
+              1.84
+            ]
+          ],
+          "word": "VOICE GENERATE",
+          "wordAt": 2.08,
+          "tone": "indigo",
+          "tail": [
+            [
+              "bhi",
+              2.68
+            ],
+            [
+              "kara",
+              2.84
+            ],
+            [
+              "sakte",
+              2.96
+            ],
+            [
+              "ho",
+              3.13
+            ]
+          ],
+          "oneLine": true
+        },
+        {
+          "type": "appCard",
+          "in": 0.7,
+          "out": 3.36,
+          "x": 90,
+          "y": 1270,
+          "w": 900,
+          "script": "assets/script.jpg",
+          "button": "assets/synth.jpg",
+          "press": 2.32
+        },
+        {
+          "type": "hand",
+          "in": 1.75,
+          "out": 3.1,
+          "from": [
+            960,
+            1800
+          ],
+          "to": [
+            790,
+            1610
+          ],
+          "tap": 2.32
+        }
+      ],
+      "start": 29.56,
+      "end": 32.92,
+      "duration": 3.36,
+      "segments": [
+        [
+          142.55,
+          145.9
+        ]
+      ],
+      "syncOffset": 2.4885
+    },
+    {
+      "id": "beat-11",
+      "title": "GitHub pe jao, install karo",
+      "scene": "aroll",
+      "spoken": "Is GitHub repository pe jao, wahan se ise install karo.",
+      "camera": [
+        [
+          0,
+          0.62,
+          0
+        ],
+        [
+          2.28,
+          0.66,
+          0.25
+        ]
+      ],
+      "cameraNote": "Tum upar, neeche poori jagah repo link ke liye.",
+      "graphics": [
+        [
+          "GitHub repository pe jao",
+          "Glowing browser khulta hai, github.com/debpalash/voicestudio type hota hai, asli repo load hota hai stars ke saath"
+        ],
+        [
+          "install karo",
+          "White tile, saath mein asli Windows install command"
+        ]
+      ],
+      "assets": [
+        {
+          "label": "README scroll, Repo-screen-recording.mp4",
+          "file": "assets/repo-scroll.jpg"
+        }
+      ],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0.04,
+          "out": 1.6,
+          "y": 715,
+          "lead": [
+            [
+              "Is",
+              0.04
+            ],
+            [
+              "GitHub",
+              0.12
+            ],
+            [
+              "repository",
+              0.5
+            ],
+            [
+              "pe",
+              0.88
+            ],
+            [
+              "jao",
+              1.05
+            ]
+          ]
+        },
+        {
+          "type": "cap",
+          "in": 1.6,
+          "out": 3.08,
+          "y": 715,
+          "lead": [
+            [
+              "wahan",
+              1.6
+            ],
+            [
+              "se",
+              1.76
+            ],
+            [
+              "ise",
+              1.89
+            ]
+          ]
+        },
+        {
+          "type": "browser",
+          "in": 0,
+          "out": 3.08,
+          "x": 50,
+          "y": 800,
+          "w": 980,
+          "h": 465,
+          "url": "github.com/debpalash/voicestudio",
+          "typeAt": 0.12,
+          "loadAt": 1.06,
+          "src": "assets/repo-scroll.jpg",
+          "from": 2080,
+          "to": 2760,
+          "stars": 98.7
+        },
+        {
+          "type": "tiles",
+          "in": 2.1,
+          "out": 3.08,
+          "y": 1285,
+          "items": [
+            {
+              "text": "Install karo",
+              "at": 2.1,
+              "hot": true
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "in": 2.1,
+          "out": 3.08,
+          "label": "Windows (PowerShell)",
+          "text": "irm https://voicestudio.sh/install.ps1 | iex",
+          "x": 80,
+          "y": 1408,
+          "w": 920
+        }
+      ],
+      "start": 32.92,
+      "end": 36.0,
+      "duration": 3.08,
+      "segments": [
+        [
+          153.37,
+          156.45
+        ]
+      ],
+      "syncOffset": 2.4885,
+      "faceY": 500
+    },
+    {
+      "title": "Laptop verify",
+      "scene": "aroll",
+      "graphics": [
+        [
+          "laptop",
+          "Laptop icon, green scan line"
+        ],
+        [
+          "verify",
+          "Bada green word, check mark pop"
+        ]
+      ],
+      "assets": [],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0.02,
+          "out": 2.44,
+          "y": 1040,
+          "lead": [
+            [
+              "Ye",
+              0.02
+            ],
+            [
+              "aapke",
+              0.17
+            ],
+            [
+              "laptop",
+              0.51
+            ],
+            [
+              "ko",
+              1.15
+            ]
+          ],
+          "word": "VERIFY",
+          "wordAt": 1.23,
+          "tone": "green",
+          "tail": [
+            [
+              "karega",
+              1.78
+            ]
+          ]
+        },
+        {
+          "type": "verify",
+          "in": 0.51,
+          "out": 2.44,
+          "y": 1340,
+          "doneAt": 1.78
+        }
+      ],
+      "id": "beat-12",
+      "start": 36.0,
+      "end": 38.44,
+      "duration": 2.44,
+      "segments": [
+        [
+          159.0,
+          161.44
+        ]
+      ],
+      "syncOffset": 2.4885,
+      "spoken": "Ye aapke laptop ko verify karega.",
+      "camera": [
+        [
+          0,
+          0.7,
+          0
+        ],
+        [
+          1.23,
+          0.84,
+          0.2
+        ]
+      ],
+      "cameraNote": "\"Verify\" pe punch-in. Voice modulation ki jagah ye naya feature."
+    },
+    {
+      "id": "beat-13",
+      "title": "Cloning chalu",
+      "scene": "aroll",
+      "spoken": "Aur phir bas cloning chalu kar do.",
+      "camera": [
+        [
+          0,
+          0.74,
+          0
+        ],
+        [
+          0.83,
+          0.98,
+          0.2
+        ]
+      ],
+      "cameraNote": "\"Cloning\" pe punch-in. Stutter wala pehla \"aur phir bas\" hata diya.",
+      "graphics": [
+        [
+          "chalu kar do",
+          "Hand tap, click ripple ke saath"
+        ]
+      ],
+      "assets": [],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0.03,
+          "out": 1.76,
+          "lead": [
+            [
+              "Aur",
+              0.03
+            ],
+            [
+              "phir",
+              0.29
+            ],
+            [
+              "bas",
+              0.5
+            ]
+          ],
+          "word": "CLONING",
+          "wordAt": 0.83,
+          "tone": "indigo",
+          "tail": [
+            [
+              "chalu",
+              1.07
+            ],
+            [
+              "kar",
+              1.31
+            ],
+            [
+              "do",
+              1.38
+            ]
+          ]
+        },
+        {
+          "type": "hand",
+          "in": 0.8,
+          "out": 1.76,
+          "from": [
+            860,
+            1620
+          ],
+          "to": [
+            660,
+            1420
+          ],
+          "tap": 1.12
+        }
+      ],
+      "start": 38.44,
+      "end": 40.2,
+      "duration": 1.76,
+      "segments": [
+        [
+          178.25,
+          180.0
+        ]
+      ],
+      "syncOffset": 2.4885
+    },
+    {
+      "id": "beat-14",
+      "title": "CTA: comment LINK",
+      "scene": "aroll",
+      "spoken": "Agar iska link chahiye to comment kar do link, aur poora setup guide aapke DM mein aa jaayega.",
+      "camera": [
+        [
+          0,
+          0.66,
+          0
+        ],
+        [
+          0,
+          0.66,
+          0
+        ]
+      ],
+      "cameraNote": "Wide rakha hai, chehra upar, taaki comment sheet ko poori jagah mile.",
+      "graphics": [
+        [
+          "comment kar do",
+          "Glossy comment sheet neeche se rise hoti hai, glow ke saath"
+        ],
+        [
+          "link",
+          "LINK bade red letters mein type hota hai, hand send dabata hai, burst, comment post hota hai heart ke saath"
+        ],
+        [
+          "DM mein",
+          "Paper plane udta hai, green DM row slide hoti hai: Poora setup guide"
+        ]
+      ],
+      "assets": [],
+      "overlays": [
+        {
+          "type": "cap",
+          "in": 0.05,
+          "out": 1.4,
+          "y": 870,
+          "lead": [
+            [
+              "Agar",
+              0.05
+            ],
+            [
+              "iska",
+              0.28
+            ],
+            [
+              "link",
+              0.52
+            ],
+            [
+              "chahiye",
+              0.84
+            ],
+            [
+              "to",
+              1.24
+            ]
+          ]
+        },
+        {
+          "type": "commentSheet",
+          "in": 1.34,
+          "out": 4.6,
+          "text": "LINK",
+          "typeAt": 1.99,
+          "sendAt": 2.3,
+          "dmAt": 3.2,
+          "dmTitle": "Poora setup guide",
+          "dmNote": "aapke DM mein"
+        },
+        {
+          "type": "cap",
+          "in": 1.4,
+          "out": 2.3,
+          "y": 850,
+          "word": "COMMENT",
+          "wordAt": 1.4,
+          "tone": "white"
+        },
+        {
+          "type": "hand",
+          "in": 1.95,
+          "out": 2.7,
+          "from": [
+            1010,
+            1700
+          ],
+          "to": [
+            850,
+            1130
+          ],
+          "tap": 2.3
+        },
+        {
+          "type": "cap",
+          "in": 2.3,
+          "out": 3.19,
+          "y": 890,
+          "lead": [
+            [
+              "aur",
+              2.3
+            ],
+            [
+              "poora",
+              2.38
+            ],
+            [
+              "setup",
+              2.6
+            ],
+            [
+              "guide",
+              2.86
+            ]
+          ]
+        },
+        {
+          "type": "cap",
+          "in": 3.19,
+          "out": 4.6,
+          "y": 785,
+          "lead": [
+            [
+              "aapke",
+              3.19
+            ]
+          ],
+          "word": "DM MEIN",
+          "wordAt": 3.45,
+          "tone": "green",
+          "tail": [
+            [
+              "aa",
+              3.7
+            ],
+            [
+              "jaayega",
+              3.85
+            ]
+          ]
+        }
+      ],
+      "start": 40.2,
+      "end": 44.8,
+      "duration": 4.6,
+      "segments": [
+        [
+          187.8,
+          192.4
+        ]
+      ],
+      "syncOffset": 2.4885,
+      "faceY": 590
+    }
+  ],
+  "duration": 44.8
+}

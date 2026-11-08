@@ -1,0 +1,24 @@
+{
+  "name": "cyan",
+  "palette": {
+    "light": "#b8f6ff",
+    "light2": "#7aeeff",
+    "main": "#2ee6ff",
+    "mid": "#12c4f5",
+    "deep": "#0098e6",
+    "white1": "#00b4e0",
+    "white2": "#0077b6",
+    "white3": "#00508a",
+    "ink": "#00222e",
+    "ink2": "#00476b",
+    "dark1": "#0d3b55",
+    "dark2": "#081c28",
+    "dark3": "#04212f",
+    "bg": "#0c1820",
+    "mainRgb": "46, 230, 255",
+    "deepRgb": "0, 152, 230",
+    "glass1": "14, 28, 38",
+    "glass2": "5, 10, 14",
+    "shadow": "0, 14, 24"
+  }
+}

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storyboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-main">
+    <p class="eyebrow">Storyboard for approval · nothing is exported yet</p>
+    <h1 id="title">Storyboard</h1>
+    <p class="sub"><span id="duration"></span> · <span id="beat-count"></span> beats<span id="note"></span></p>
+    <p class="style-line" id="style-line"></p>
+  </div>
+  <div class="top-side">
+    <button id="watch-cut" class="primary" disabled>▶ Play the full cut</button>
+    <button id="download-reviews" disabled>Export feedback</button>
+    <p id="connection" class="connection">Connecting…</p>
+  </div>
+</header>
+
+<section class="progress-bar" aria-label="Review progress">
+  <div class="progress-text"><strong id="progress-text">0 of 0 reviewed</strong></div>
+  <div class="track"><div id="progress-fill"></div></div>
+  <div class="filters">
+    <button data-filter="all" aria-pressed="true">All <span id="all-count"></span></button>
+    <button data-filter="pending" aria-pressed="false">To review <span id="pending-count"></span></button>
+    <button data-filter="approved" aria-pressed="false">Approved <span id="approved-count"></span></button>
+    <button data-filter="rejected" aria-pressed="false">Rejected <span id="rejected-count"></span></button>
+  </div>
+</section>
+
+<div id="app-error" class="app-error" role="alert" hidden></div>
+<main id="beats"></main>
+<p id="empty" class="empty" hidden>No beats in this filter.</p>
+
+<dialog id="player-dialog">
+  <button id="close-player" aria-label="Close player">✕</button>
+  <div class="frame large"><div class="stage" id="full-stage"><video id="full-player" playsinline preload="auto"></video></div></div>
+  <div class="scrub"><button id="full-toggle">Pause</button><input id="full-range" type="range" min="0" max="1000" value="0" aria-label="Seek the full cut"></div>
+</dialog>
+
+<div id="toast" class="toast" role="status"></div>
+<script src="motion.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

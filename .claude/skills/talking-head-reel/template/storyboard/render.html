@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en" class="render">
+<head><meta charset="utf-8"><title>Overlay render</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="frame"><div class="stage" id="stage"><video id="v"></video></div></div>
+<script src="motion.js"></script>
+<script>
+(async () => {
+  const project = await (await fetch('/api/storyboard')).json();
+  const stage = new Stage(document.querySelector('#stage'), project.beats, document.querySelector('#v'));
+  await document.fonts.ready;
+  stage.fit();
+  await Promise.all([...document.images].map(image => image.decode().catch(() => {})));
+  window.seekTo = t => new Promise(done => { stage.seek(t); requestAnimationFrame(() => requestAnimationFrame(done)); });
+  window.duration = project.duration;
+  window.ready = true;
+})();
+</script>
+</body>
+</html>

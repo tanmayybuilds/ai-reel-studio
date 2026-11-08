@@ -1,0 +1,134 @@
+[
+  {
+    "text": "And",
+    "start": 0.32,
+    "end": 0.4,
+    "id": "w0"
+  },
+  {
+    "text": "so",
+    "start": 0.4,
+    "end": 0.52,
+    "id": "w1"
+  },
+  {
+    "text": "my",
+    "start": 0.69,
+    "end": 0.94,
+    "id": "w2"
+  },
+  {
+    "text": "fellow",
+    "start": 0.94,
+    "end": 1.75,
+    "id": "w3"
+  },
+  {
+    "text": "Americans",
+    "start": 1.75,
+    "end": 2.11,
+    "id": "w4"
+  },
+  {
+    "text": "ask",
+    "start": 3.29,
+    "end": 3.65,
+    "id": "w5"
+  },
+  {
+    "text": "not",
+    "start": 4.02,
+    "end": 4.28,
+    "id": "w6"
+  },
+  {
+    "text": "what",
+    "start": 4.28,
+    "end": 4.99,
+    "id": "w7"
+  },
+  {
+    "text": "your",
+    "start": 5.41,
+    "end": 5.5,
+    "id": "w8"
+  },
+  {
+    "text": "country",
+    "start": 5.5,
+    "end": 6.39,
+    "id": "w9"
+  },
+  {
+    "text": "can",
+    "start": 6.39,
+    "end": 6.63,
+    "id": "w10"
+  },
+  {
+    "text": "do",
+    "start": 6.64,
+    "end": 6.92,
+    "id": "w11"
+  },
+  {
+    "text": "for",
+    "start": 7.01,
+    "end": 7.14,
+    "id": "w12"
+  },
+  {
+    "text": "you,",
+    "start": 7.16,
+    "end": 7.49,
+    "id": "w13"
+  },
+  {
+    "text": "ask",
+    "start": 8.19,
+    "end": 8.49,
+    "id": "w14"
+  },
+  {
+    "text": "what",
+    "start": 8.63,
+    "end": 8.75,
+    "id": "w15"
+  },
+  {
+    "text": "you",
+    "start": 8.91,
+    "end": 9,
+    "id": "w16"
+  },
+  {
+    "text": "can",
+    "start": 9,
+    "end": 9.36,
+    "id": "w17"
+  },
+  {
+    "text": "do",
+    "start": 9.36,
+    "end": 9.52,
+    "id": "w18"
+  },
+  {
+    "text": "for",
+    "start": 9.52,
+    "end": 9.76,
+    "id": "w19"
+  },
+  {
+    "text": "your",
+    "start": 9.76,
+    "end": 9.99,
+    "id": "w20"
+  },
+  {
+    "text": "country.",
+    "start": 10,
+    "end": 10.5,
+    "id": "w21"
+  }
+]

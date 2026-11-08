@@ -1,0 +1,7 @@
+# Python packages for Tools/vision-venv (Python 3.11 or 3.12; MediaPipe 0.10.14 has no wheels for 3.13+).
+# These are the versions tested together on Windows 11 in November 2026.
+numpy==2.4.6
+pillow==13.0.0
+opencv-python-headless==5.0.0.93
+mediapipe==0.10.14
+scipy==1.17.1

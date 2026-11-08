@@ -1,0 +1,38 @@
+# --- Media: footage, renders and downloaded references stay on your machine ---
+Raw/*
+!Raw/README.md
+Exports/*
+!Exports/README.md
+References/*
+!References/README.md
+Start Storyboard.cmd
+start-storyboard.sh
+
+# Approved videos are kept out of main; a creator branch may un-ignore them.
+Approved Videos/*
+!Approved Videos/README.md
+
+# --- Installed tools (re-created by setup/install.*) ---
+Tools/node_modules/
+Tools/Remotion/node_modules/
+Tools/Remotion/out/
+Tools/HyperFrames/.hyperframes/
+Tools/HyperFrames/renders/
+Tools/vision-venv/
+Tools/whisper.cpp/
+Tools/whisper.cpp-src/
+Tools/models/
+Tools/bin/
+Tools/downloads/
+Tools/chrome/
+Tools/Tests/
+Tools/paths.json
+
+# --- Generated per project ---
+__pycache__/
+*.pyc
+*.part
+.DS_Store
+Thumbs.db
+desktop.ini
+.claude/settings.local.json
