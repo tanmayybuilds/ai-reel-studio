@@ -59,8 +59,9 @@ Default: the spoken language in its usual script. For Hinglish, the default is R
 **Q9. Caption style.**
 "Which caption style?
 (a) **Two-tier** (default, talking-head look): a small lead line that reveals word by word, plus one big gradient hero word per line;
-(b) **Minimal** (podcast-window look): 2 or 3 small lowercase words at a time, plus serif hero words."
-If they ask for something else, such as karaoke highlighting, note it. It means adding a caption builder to `storyboard/motion.js`, so say that it will take extra work on the first video.
+(b) **Karaoke**: the line sits in a frosted pill, each word pops in as it's spoken, the current word is boxed in your accent colour, and keywords stay coloured, plus a hero word;
+(c) **Minimal** (podcast-window look): 2 or 3 small lowercase words at a time, plus serif hero words."
+For karaoke, every `cap` overlay gets `"karaoke": true` (see `references/storyboard.md`).
 → `studio.json: captionStyle`; brand kit "Captions".
 
 **Q10. Accent colour.**
@@ -87,8 +88,9 @@ If they have fonts, put the `.woff2`, `.ttf` or `.otf` files in `Brand Kit/fonts
 **Q13. Background (talking head only).**
 "For the background:
 (a) **your real room, lightly blurred** like a video call (default, most natural, hides matte errors);
-(b) **cut out onto a dark studio set** (needs a few seconds of empty frame in every recording, and edges can look ragged)."
-→ `studio.json: background` (`room` or `set`), `bgBlur` (default 5).
+(b) **cut out onto a dark studio set** (needs a few seconds of empty frame in every recording, and edges can look ragged);
+(c) **plain**: the whole frame, colour-graded, with no cutout. Best for vertical phone selfies."
+→ `studio.json: background` (`room`, `set` or `plain`), `bgBlur` (default 5).
 
 **Q14. Reference videos.**
 "Do you have 1 to 3 reels whose editing style you love? Send links or files. I'll study them frame by frame (pacing, captions, transitions, sound) and write your brand kit from them. Only share videos you're allowed to download for private study."

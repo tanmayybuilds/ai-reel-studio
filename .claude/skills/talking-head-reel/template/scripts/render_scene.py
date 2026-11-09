@@ -222,6 +222,44 @@ def zoom_at(t, keys):
     return z
 
 
+_GRADE = {}
+
+
+def plain(frame, z, face, w, h, face_at=None):
+    """bgMode "plain" (Sarmila reel, 8 Nov 2026): a portrait phone clip that already fills 9:16.
+    No matte: the frame is cover-scaled, framed on the face but clamped so no canvas ever shows,
+    then graded (contrast, warmth, a little saturation, vignette) and sharpened for the upscale.
+    Zoom 1.0 is the whole source frame; 1.1 to 1.45 are punch-ins."""
+    k = h / 1920
+    s = max(z * h / SH, w / SW, h / SH) * 1.002
+    face_y = (face_at or 600) * k
+    tx = float(np.clip(w / 2 - face[0] * s, w - SW * s, 0))
+    ty = float(np.clip(face_y - face[1] * s, h - SH * s, 0))
+    a = np.float32([[s, 0, tx], [0, s, ty]])
+    img = cv2.warpAffine(frame, a, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
+    key = (w, h)
+    if key not in _GRADE:
+        # All uint8 OpenCV ops (numpy float maths was ~300 ms a frame).
+        xx = np.linspace(-1, 1, w, dtype=np.float32)[None, :]
+        yy = np.linspace(-1, 1, h, dtype=np.float32)[:, None]
+        vig = 1 - CONFIG.get("vignette", .22) * np.clip(xx ** 2 * .8 + yy ** 2 * .55, 0, 1.4)
+        _GRADE[key] = cv2.merge([np.round(vig * 255).astype(np.uint8)] * 3)
+        lut = np.arange(256, dtype=np.float32) / 255
+        # Gentle S-curve (shadows a little deeper, highlights brighter) times a touch of warmth, per channel (BGR).
+        curve = np.clip(lut - CONFIG.get("contrast", .028) * np.sin(2 * np.pi * lut), 0, 1)
+        warm = CONFIG.get("warmth", [.97, 1.0, 1.035])
+        _GRADE["lut"] = np.stack([np.clip(curve * 255 * g, 0, 255) for g in warm], 1).astype(np.uint8).reshape(1, 256, 3)
+    img = cv2.LUT(img, _GRADE["lut"])
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    hsv[..., 1] = cv2.convertScaleAbs(hsv[..., 1], alpha=CONFIG.get("saturation", 1.1))
+    img = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+    img = cv2.multiply(img, _GRADE[key], scale=1 / 255)
+    # Unsharp mask: the 536 px source is upscaled about 2x, so restore some edge bite.
+    amount = CONFIG.get("sharpen", .55)
+    blur = cv2.GaussianBlur(img, (0, 0), 1.6 * k * 1.5)
+    return cv2.addWeighted(img, 1 + amount, blur, -amount, 0)
+
+
 def compose(frame, m, z, face, backdrop, desk, w, h, rim=True, face_at=None, room=None):
     k = h / 1920
     s = z * h / SH
@@ -307,7 +345,10 @@ def main():
     desk = build_desk(w, h)
     MEDIA.mkdir(exist_ok=True)
     room = None
-    if CONFIG.get("bgMode") == "room":
+    is_plain = CONFIG.get("bgMode") == "plain"
+    if is_plain:
+        matte = None
+    elif CONFIG.get("bgMode") == "room":
         # Empty room during the talk: patches the band around the speaker before the live frame is blurred.
         plate_file = MEDIA.parent / "analysis" / "talk-plate.jpg"
         if not plate_file.exists():
@@ -336,8 +377,11 @@ def main():
             back = backdrop
             for frame in read_frames(src_in, count):
                 t = index / FPS
-                img = compose(frame, matte(frame), zoom_at(t, camera[beat["id"]]), face, back, desk, w, h,
-                              face_at=face_at[beat["id"]], room=room)
+                if is_plain:
+                    img = plain(frame, zoom_at(t, camera[beat["id"]]), face, w, h, face_at=face_at[beat["id"]])
+                else:
+                    img = compose(frame, matte(frame), zoom_at(t, camera[beat["id"]]), face, back, desk, w, h,
+                                  face_at=face_at[beat["id"]], room=room)
                 for point in blur_points[beat["id"]]:  # the reference opens every cut slightly out of focus
                     if 0 <= t - point < .28:
                         img = cv2.GaussianBlur(img, (0, 0), (1 - (t - point) / .28) ** 1.5 * 22 * h / 1920 + .01)

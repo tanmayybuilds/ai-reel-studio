@@ -152,6 +152,9 @@ def main():
         if f.exists():
             text = f.read_bytes().decode("utf8")  # bytes keep the file's own line endings
             out = apply(text, mapping)
+            if state["name"] != name and f.suffix in (".css", ".js"):
+                # Every tone class (.hero.cyan, .chart-card.cyan, .counter.cyan, ...) follows the new name.
+                out = re.sub(rf"\.{re.escape(state['name'])}\b", f".{name}", out)
             if out != text:
                 f.write_bytes(out.encode("utf8"))
                 changed.append(f.name)

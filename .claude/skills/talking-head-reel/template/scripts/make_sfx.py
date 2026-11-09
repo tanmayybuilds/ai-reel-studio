@@ -201,6 +201,14 @@ def coin():
     t = np.arange(n) / SR
     bell = sum(np.sin(2 * np.pi * f * t) * a for f, a in ((2637, 1), (3950, .55), (5274, .3)))
     return reverb((bell * env(n, .001, .12)).astype(np.float32) * .4, .3)
+def glide(f0, f1, dur):
+    """A soft sine sliding from f0 to f1: a dull flat tone, a falling 'value drop' or a sad blip."""
+    n = n_of(dur)
+    t = np.arange(n) / SR
+    freq = f0 + (f1 - f0) * (t / dur)
+    tone = np.sin(2 * np.pi * np.cumsum(freq) / SR) + .3 * np.sin(4 * np.pi * np.cumsum(freq) / SR)
+    shape = np.minimum(1, t / .02) * np.minimum(1, (dur - t) / .08)
+    return reverb((tone * shape).astype(np.float32) * .6, .18)
 
 
 C6, E6, G6, C7, A5, E5 = 1046.5, 1318.5, 1568.0, 2093.0, 880.0, 659.3
@@ -228,9 +236,15 @@ for index, beat in enumerate(board["beats"]):
                 add("reveal sparkle", hit + .05, sparkle(), .22)
             elif tone == "red":
                 add("hero boom", hit, impact(1.35), .55)
-            elif tone == "green":
+            elif o.get("karaoke") and tone in ("green", "cyan"):  # karaoke captions (Sarmila reel): hit plus shimmer
+                add("hero hit", hit, impact(.95), .36)
+                add("hero shimmer", hit + .18, sparkle(.45), .13)
+            elif tone == "green":  # two-tier house captions (approved VoiceStudio to Muse)
                 add("hero hit", hit, impact(.9), .3)
                 add("success chime", hit + .02, chime([C6, G6], .07, .25), .14)
+            elif tone == "gold":
+                add("hero hit", hit, impact(1.05), .4)
+                add("gold sparkle", hit + .12, sparkle(.5), .16)
             else:
                 add("hero hit", hit, impact(), .42)
         if kind == "tiles":
@@ -267,7 +281,8 @@ for index, beat in enumerate(board["beats"]):
         if kind == "commentSheet":
             add("sheet rise", at - .05, whoosh(.34), .26)
             for k in range(len(o["text"])):
-                add("key", s + o["typeAt"] + k * .05, key(), .34, rng.uniform(-.2, .2))
+                t_key = o["times"][k] if o.get("times") else o["typeAt"] + k * .05
+                add("key", s + t_key, key(), .4, rng.uniform(-.2, .2))
             add("send swoosh", s + o["sendAt"], whoosh(.24, False), .3, (.3, .9))
             add("heart pop", s + o["sendAt"] + .4, pop(900), .22, .5)
             if o["dmAt"] < beat["duration"]:  # this reel's DM rows arrive in the next beat as notify rows
@@ -357,6 +372,93 @@ for index, beat in enumerate(board["beats"]):
                 add("clock tick", t0, tick(2900 if k % 2 else 2100, .025), .16, .25 if k % 2 else -.25)
                 t0 += .14; k += 1
             add("tag pop", s + o.get("tagAt", o["in"] + .3), pop(700), .26, .5)
+        # ---- Sarmila reel builders (8 Nov 2026) ----
+        if kind == "chart":
+            add("card swoosh", at - .06, whoosh(.3), .22, (-.3, .2))
+            add("card land", at + .3, impact(.5), .12)
+            draw, span = s + o["drawAt"], o.get("drawFor", 1.4)
+            if o["mode"] == "compound":
+                add("growth riser", draw, riser(span), .2)
+            elif o["mode"] == "down":
+                add("value drop", draw, whoosh(span, False, .25), .22, (.4, -.4))
+                add("drop tone", draw, glide(880, 220, span), .1)
+            else:
+                add("flat tone", draw, glide(330, 300, span), .06)
+            for st in o.get("stats", []):
+                for k in range(7):
+                    add("count tick", s + st["at"] + k * st.get("dur", .7) / 8, pop(820 + 70 * k)[:n_of(.03)], .1)
+                land = s + st["at"] + st.get("dur", .7)
+                if st.get("tone") == "red":
+                    add("sad blip", land, glide(520, 260, .35), .14)
+                else:
+                    add("stat land", land, pop(700), .22)
+            for m in o.get("marks", []):
+                add("mark pop", s + m["at"], pop(620 + 240 * o["marks"].index(m)), .3, .3)
+            if o.get("tag"):
+                add("tag pop", s + o["tagAt"], pop(380), .24, .4)
+        if kind == "counter":
+            add("counter pop", at, pop(500), .2)
+            for k in range(10):
+                add("count tick", s + o["at"] + k * o.get("dur", .8) / 11, pop(760 + 55 * k)[:n_of(.03)], .12)
+            land = s + o["at"] + o.get("dur", .8)
+            add("counter land", land, impact(.8), .26)
+            add("bell", land + .02, chime([E6, C7] if o.get("tone") == "cyan" else [C6, G6], .06, .3), .15)
+        if kind == "progress":
+            add("scrub", s + o["at"], whoosh(o.get("dur", .8), True, .85), .2, (-.6, .6))
+            add("end click", s + o["endAt"], click(), .5, .6)
+            add("end pop", s + o["endAt"] + .02, pop(720), .2, .6)
+        if kind == "nameCard":
+            add("card swoosh", at - .05, whoosh(.32), .24, (-.5, 0))
+            add("name riser", s + o["nameAt"] - .3, riser(.3), .12)
+            add("name sparkle", s + o["nameAt"] + .05, sparkle(.55), .2)
+            add("check pop", s + o.get("checkAt", o["title"][0][1]), pop(880), .24)
+            for k in range(o.get("kids", 0)):
+                add("kid pop", s + o["kidsAt"] + k * .12, pop(620 + 160 * k), .26, .35)
+        if kind == "profile":
+            add("card swoosh", at - .05, whoosh(.32), .24, (-.4, .1))
+            for k in range(8):
+                add("count tick", s + o["ageAt"] + k * .06, pop(800 + 60 * k)[:n_of(.03)], .11)
+            add("age land", s + o["ageAt"] + .58, pop(640), .22)
+            if o.get("capAt") is not None:
+                add("cap drop", s + o["capAt"] - .1, whoosh(.18, False), .16)
+                add("cap land", s + o["capAt"] + .28, impact(.45), .2)
+            for k, c in enumerate(o.get("chips", [])):
+                add("chip pop", s + c["at"], pop(560 + 150 * k), .26, .3)
+        if kind == "transfer":
+            add("block rise", at, whoosh(.28), .18)
+            add("card pop", s + o["from"]["at"], pop(420), .28, -.5)
+            add("card pop", s + o["to"]["at"], pop(620), .3, .5)
+            for k in range(3):
+                add("coin fly", s + o["flyAt"] + k * .16, whoosh(.5, True, .5), .16, (-.5, .5))
+                add("coin clink", s + o["flyAt"] + k * .16 + .5, chime([G6 * (1 + .06 * k)], .05, .08), .11, .5)
+            add("cash ding", s + o["flyAt"] + .72, chime([C7, E6 * 2], .07, .35), .18, .5)
+        if kind == "darkBoard" and o.get("fade", .2) > .05 and o["in"] > 0:
+            add("board hit", at + .02, impact(1.2), .42)
+        if kind == "flash":
+            add("flash riser", at - .45, riser(.45), .2)
+            if o.get("tone") == "red":
+                add("red sting", at, glide(220, 90, .5), .14)
+        if kind == "proof":
+            add("proof rise", at - .04, whoosh(.4), .24, (.2, -.2))
+            add("proof land", at + .4, impact(.5), .14)
+            add("ring chime", s + o["ringAt"], chime([E6, G6, C7], .06, .3), .16)
+        if kind == "compare":
+            for item in o["items"]:
+                add("bar swell", s + item["at"], riser(item.get("dur", .6)), .16 if item["tone"] == "cyan" else .08)
+                add("bar land", s + item["at"] + item.get("dur", .6), pop(760 if item["tone"] == "cyan" else 300), .24)
+        if kind == "sheetList":
+            add("sheet rise", at - .05, whoosh(.36), .26)
+            for row in o["rows"]:
+                if row["icon"] == "x":
+                    add("cross buzz", s + row["at"] + .05, glide(180, 150, .18), .12)
+                    add("cross pop", s + row["at"] + .05, pop(300), .24)
+                else:
+                    add("check chime", s + row["at"] + .05, chime([C6, G6], .07, .25), .16)
+        if kind == "statement":
+            add("paper slide", at - .02, paper(), .32)
+            add("card pop", at + .3, pop(460), .2)
+            add("lens glide", s + o["lensAt"], whoosh(.45, True, .6), .16, (.7, -.1))
+            add("question ping", s + o["hotAt"], chime([A5, E6], .09, .25), .16)
 
 track = track[:int(total * SR)]
 peak = float(np.abs(track).max())

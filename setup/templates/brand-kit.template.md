@@ -35,13 +35,13 @@ Fonts are local files in `.claude/skills/talking-head-reel/template/storyboard/f
 ## Captions
 
 - Language and script: **{{caption language}}**. {{For Romanized captions: Latin letters, English words keep English spelling.}}
-- Style: **{{two-tier | minimal}}**. {{Two-tier: a small lead line with words appearing one at a time on the spoken word, each with a quick blur-in, then one big gradient hero word that wipes in left to right with a soft dark glow behind it.}}
+- Style: **{{two-tier | karaoke | minimal}}**. {{Two-tier: a small lead line with words appearing one at a time on the spoken word, each with a quick blur-in, then one big gradient hero word that wipes in left to right with a soft dark glow behind it.}}
 - Placement: centred on the chest, never on the mouth. Every spoken word is captioned. One idea on screen at a time. When tiles or pills are showing, they are the caption.
 - Spellings to keep: {{brand names, product names, words the creator always spells a certain way}}
 
 ## Camera
 
-- Background: **{{room: the real room lightly blurred (bgBlur 5), like a video call | set: a cutout on a dark shelf set}}**.
+- Background: **{{room: the real room lightly blurred (bgBlur 5), like a video call | set: a cutout on a dark shelf set | plain: the whole graded frame, no cutout (phone selfies; zoom 1.0 = full frame, 1.1 to 1.45 punch-ins)}}**.
 - Zoom range 0.66 (wide, room for graphics) to 1.0 (tight). Change framing on every cut.
 - Fast punch-ins take 0.2 s and land on the key word. Slow pushes run across a line that carries tension.
 - Every cut opens with a 0.28 s blur-in.
