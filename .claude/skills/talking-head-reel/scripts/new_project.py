@@ -52,6 +52,8 @@ def main():
     ap.add_argument("--voiceover", help="audio file with the clean dialogue, or 'none' to use the camera audio")
     ap.add_argument("--edit-dir")
     ap.add_argument("--port", type=int)
+    ap.add_argument("--language", help="whisper language for this video (en, hi, ...), overriding studio.json, e.g. a client who speaks English")
+    ap.add_argument("--bg", choices=["room", "set", "plain"], help="background mode for this video, overriding studio.json")
     args = ap.parse_args()
 
     video_dir = Path(args.video_dir).resolve()
@@ -112,13 +114,14 @@ def main():
         "fps": fps,
         "width": 1080,
         "height": 1920,
-        "language": profile.get("whisperLanguage", "auto"),
+        "language": args.language or profile.get("whisperLanguage", "auto"),
         "loudness": profile.get("loudness", -14),
         "syncOffset": 0,
         "cleanPlate": None,
         # House default: the real room lightly blurred (video-call look), MatteV3, and a talk plate for room mode.
         # "set" puts a cutout of the speaker on a dark shelf set instead (needs a clean empty-room frame).
-        "bgMode": profile.get("background", "room"),
+        # "plain" shows the whole graded frame with no matte, for portrait phone clips (Sarmila reel).
+        "bgMode": args.bg or profile.get("background", "room"),
         "bgBlur": profile.get("bgBlur", 5),
         "matte": "v3",
         "talkPlate": True,
@@ -129,7 +132,11 @@ def main():
     }
     (edit / "project.json").write_text(json.dumps(config, indent=2), encoding="utf8")
     (edit / "edit-plan.json").write_text(json.dumps({"beats": []}, indent=2), encoding="utf8")
-    board = {"title": title, "video": "media/rough-cut.mp4", "styleLine": "", "note": "", "duration": 0, "beats": []}
+    # The dashboard tags caption text with this language (e.g. hi-Latn for Romanized Hinglish).
+    lang = config["language"] if config["language"] != "auto" else "en"
+    roman = "roman" in str(profile.get("captionLanguage", "")).lower() and not args.language
+    board = {"title": title, "video": "media/rough-cut.mp4", "styleLine": "", "note": "", "duration": 0,
+             "captionLang": f"{lang}-Latn" if roman else lang, "beats": []}
     (edit / "storyboard.json").write_text(json.dumps(board, indent=2), encoding="utf8")
     for folder in ("analysis", "media"):
         (edit / folder).mkdir(exist_ok=True)

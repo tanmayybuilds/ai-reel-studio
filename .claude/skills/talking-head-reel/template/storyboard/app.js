@@ -50,10 +50,10 @@ function cardHtml(beat, index) {
       <div class="controls"><button class="play">Play</button><input class="range" type="range" min="0" max="1000" value="0" aria-label="Seek beat ${index + 1}"></div></div>
     <div class="info">
       <div class="beat-heading"><span class="beat-number">${String(index + 1).padStart(2, '0')}</span><div><h3 id="title-${id}">${escapeHtml(beat.title)}</h3><span class="beat-time">${time(beat.start)} to ${time(beat.end)} · ${beat.duration.toFixed(1)}s</span></div><span class="status">To review</span></div>
-      <span class="label">Captions</span><p class="spoken" lang="hi-Latn">${escapeHtml(beat.spoken)}</p>
+      <span class="label">Captions</span><p class="spoken" lang="${escapeHtml(project.captionLang || 'en')}">${escapeHtml(beat.spoken)}</p>
       <span class="label">Motion graphics, and the word that triggers each</span>
       <ul class="graphics">${beat.graphics.map(([word, what]) => `<li><q>${escapeHtml(word)}</q><span>${escapeHtml(what)}</span></li>`).join('')}</ul>
-      <span class="label">Camera</span><p class="note">${escapeHtml(beat.cameraNote)}</p>
+      <span class="label">Camera</span><p class="note">${escapeHtml(beat.cameraNote)}</p>${beat.sfx ? `<span class="label">Sound effects</span><p class="note">${escapeHtml(beat.sfx)}</p>` : ''}
       <span class="label">B-roll and assets</span>
       ${beat.assets.length ? `<div class="assets">${beat.assets.map(a => `<a href="${escapeHtml(a.file)}" target="_blank" rel="noopener"><img src="${escapeHtml(a.file)}" alt="${escapeHtml(a.label)}" loading="lazy">${escapeHtml(a.label)}</a>`).join('')}</div>` : '<p class="note">None. A-roll carries this beat.</p>'}
       <p class="source">Source: ${escapeHtml(sourceNote(beat))}</p>

@@ -121,6 +121,8 @@ Send the export to the user, or give its path. Report what changed, what you ver
 - **Every overlay animation is paused and seeked.** With the Web Animations API (WAAPI), keyframes using `fill: both` show their first frame before the start time. Builders that must stay invisible until their time need a leading `opacity: 0` keyframe.
 - **The server re-reads `storyboard.json` on every request.** After an edit, reload the page. The final overlay render loads from the same server, so it must be running on the project's port.
 - **Room mode needs a talk plate.** `render_scene.py` writes `analysis/talk-plate.jpg` (`talkPlate: true`). Without it, room mode silently falls back to the dark set. Choose a clean-plate frame with settled exposure, because cameras start dark.
+- **Language per video.** A client may not speak the studio's language. Check the first seconds, then pass `new_project.py --language en` (or `hi`, and so on). Whisper in the wrong language produces garbage, not just errors.
+- **Loudness can land short.** If `assemble.py` reports well under -14 LUFS (single-pass loudnorm stops short under the true-peak ceiling), add limiter, gain, limiter on the final audio and remux, then re-check. Never just raise the gain into clipping.
 - **The camera keeps rolling.** Speakers stand up or reach for the camera after the last line, so end the last beat before that, or cover it with an end card.
 - **FFmpeg 5.1+ is needed.** FFmpeg 9 removed `-vsync`, so use `-fps_mode`.
 - **Non-ASCII in scripts.** Edit `.py` files with an editor tool, not with PowerShell `Get-Content`/`Set-Content`, which turns `₹`, `–` and `’` into mojibake.
@@ -132,8 +134,8 @@ Send the export to the user, or give its path. Report what changed, what you ver
 - `scripts/check_setup.py`, `new_project.py`, `study_reference.py`, `set_accent.py`, `studio_paths.py`: run from the studio folder.
 - `template/`: copied into every new project.
   - `scripts/`: `prepare`, `list_takes`, `cut_audio`, `render_scene` (room mode, MatteV3, talk plate), `render_overlay.cjs`, `qa_sheet.cjs`, `make_sfx` (layered stereo SFX; `make_sfx_basic` is the plainer first version), `assemble`, `stitch_scroll`, and the shared `project.py`.
-  - `storyboard/`: the dashboard and motion layer, with fonts. Its accent (cyan by default) is recorded in `storyboard/accent.json`. Builders include `typer`, `price`, `tokenMeter`, `codeFlap`, `timeline`, `stepRail` and `offerTimer`.
-  - Defaults: the real room lightly blurred (`bgMode: "room"`) and layered SFX. They are already in the template, so don't copy scripts from an older project.
+  - `storyboard/`: the dashboard and motion layer, with fonts. Its accent (cyan by default) is recorded in `storyboard/accent.json`. Builders include `typer`, `price`, `tokenMeter`, `codeFlap`, `timeline`, `stepRail` and `offerTimer` (Muse), and `chart`, `counter`, `progress`, `nameCard`, `profile`, `transfer`, `darkBoard`, `flash`, `proof`, `compare`, `sheetList` and `statement` (Sarmila), plus karaoke captions (`cap` with `karaoke: true`).
+  - Defaults: the real room lightly blurred (`bgMode: "room"`) and layered SFX. `bgMode: "plain"` (`new_project.py --bg plain`) shows the whole graded frame with no matte, for portrait phone clips. All of this is already in the template, so don't copy scripts from an older project.
 - `references/style-study.md`: studying references and writing the brand kit.
 - `references/takes-and-cuts.md`: sync, the take map, choosing takes, `edit-plan.json`, evidence.
 - `references/storyboard.md`: `storyboard.json`, the camera, the overlay catalogue, layout and design rules, review rounds.

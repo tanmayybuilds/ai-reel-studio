@@ -14,20 +14,84 @@ const pop = (node, at, dur = .26) => ({node, at, dur, ease: BACK, frames: [{opac
 const rise = (node, at, dur = .34) => ({node, at, dur, ease: EASE, frames: [{opacity: 0, filter: 'blur(16px)', transform: 'translateY(70px) scale(.94)'}, {opacity: 1, filter: 'blur(0)', transform: 'none'}]});
 
 function bars(parent, count) { return Array.from({length: count}, () => el('i', '', parent)); }
-function heroLines(text) { return text.length > 12 && text.includes(' ') ? text.split(' ') : [text]; }
+function heroLines(text) { return text.includes('|') ? text.split('|') : text.length > 12 && text.includes(' ') ? text.split(' ') : [text]; }
+
+// Sarmila reel (8 Nov 2026): karaoke captions. Each word pops in on its spoken time; the word being spoken
+// carries an accent box until the next word lands. Keywords ([text, at, 'key'|'red'|'gold']) keep their colour.
+const ACCENT = '#2ee6ff', ACCENT_INK = '#00222e';  // set_accent.py swaps these with the rest of the palette
+const ACCENT_RGB = [1, 3, 5].map(i => parseInt(ACCENT.slice(i, i + 2), 16)).join(',');
+const KEY_COL = {key: ACCENT, red: '#ff5c7f', gold: '#ffd36e'};
+const popWord = (node, at) => ({node, at, dur: .22, ease: BACK, frames: [{opacity: 0, filter: 'blur(8px)', transform: 'translateY(14px) scale(.55)'}, {opacity: 1, filter: 'blur(0)', transform: 'none'}]});
+function capWords(line, list, ctx, endAt) {
+  line.classList.add('kara');
+  list.forEach(([text, at, key], i) => {
+    const span = el('span', key ? `kw kw-${key}` : '', line, text);  // not plain "key": that class is the typer's keyboard key
+    ctx.anims.push(popWord(span, at));
+    const next = i + 1 < list.length ? list[i + 1][1] : endAt ?? at + .42;
+    const dur = Math.max(.14, Math.min(next, at + .6) - at);
+    const base = KEY_COL[key] ?? '#ffffff';
+    const box = key === 'red' ? '255,61,102' : ACCENT_RGB;
+    const ink = key === 'red' ? '#ffffff' : ACCENT_INK;
+    const p = Math.min(.35, .05 / dur);
+    ctx.anims.push({node: span, at, dur, ease: 'linear', frames: [
+      {backgroundColor: `rgba(${box},0)`, color: base, scale: '1'},
+      {backgroundColor: `rgba(${box},1)`, color: ink, scale: '1.08', offset: p},
+      {backgroundColor: `rgba(${box},1)`, color: ink, scale: '1.08', offset: 1 - p},
+      {backgroundColor: `rgba(${box},0)`, color: base, scale: '1'}]});
+  });
+}
+
+let CHART_ID = 0;
+// y of each chart curve for x in 0..1 (0 = top of the plot, 1 = bottom).
+const CURVES = {
+  flat: x => .72 - .07 * x + .022 * Math.sin(x * 19) * (1 - .4 * x),
+  down: x => .2 + .62 * Math.pow(x, 1.15) + .03 * Math.sin(x * 16),
+  compound: x => .9 - .82 * (Math.exp(3.3 * x) - 1) / (Math.exp(3.3) - 1) + .012 * Math.sin(x * 21),
+  up: x => .85 - .7 * x + .03 * Math.sin(x * 14)
+};
+const ICONS = {
+  bank: '<svg viewBox="0 0 64 64"><path fill="currentColor" d="M32 4 4 18v6h56v-6L32 4zM8 28h8v22H8zm14 0h8v22h-8zm12 0h8v22h-8zm14 0h8v22h-8zM4 54h56v6H4z"/></svg>',
+  fund: '<svg viewBox="0 0 64 64"><path fill="currentColor" d="M32 3 7 12v17c0 15 10.6 28.4 25 32 14.4-3.6 25-17 25-32V12L32 3z" opacity=".25"/><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M17 42l10-10 7 7 13-15m-9 0h9v9"/></svg>',
+  grad: '<svg viewBox="0 0 64 64"><path fill="#14131c" d="M32 10 2 24l30 14 30-14L32 10z"/><path fill="#14131c" d="M14 32v12c0 5 8 9 18 9s18-4 18-9V32L32 41 14 32z"/><path fill="none" stroke="#ffd36e" stroke-width="3" d="M56 27v16"/><circle cx="56" cy="45" r="4" fill="#ffd36e"/></svg>',
+  boy: '<svg viewBox="0 0 64 64"><circle cx="32" cy="22" r="13" fill="currentColor"/><path fill="currentColor" d="M8 60c0-14 10.7-23 24-23s24 9 24 23z"/></svg>',
+  doc: '<svg viewBox="0 0 64 64"><path fill="currentColor" d="M14 4h26l14 14v42H14z" opacity=".9"/><path fill="none" stroke="#0c1820" stroke-width="4" stroke-linecap="round" d="M22 28h20M22 38h20M22 48h12"/></svg>',
+  lens: '<svg viewBox="0 0 120 120"><circle cx="48" cy="48" r="34" fill="rgba(46, 230, 255,.22)" stroke="#0c1820" stroke-width="10"/><path stroke="#0c1820" stroke-width="16" stroke-linecap="round" d="M74 74l34 34"/></svg>',
+  school: '<svg viewBox="0 0 64 64"><path fill="currentColor" d="M32 6 6 20v6h52v-6L32 6zM10 30h44v28H10z" opacity=".95"/><path fill="#0c1820" d="M27 42h10v16H27z"/></svg>'
+};
 
 const builders = {
   cap(o, ctx) {
-    const box = el('div', `cap${o.ink ? ' ink' : ''}`, ctx.root);
+    // Two styles. Default (house style, approved on VoiceStudio to Muse): lead words blur in one by one, then the
+    // hero word wipes in. With `karaoke: true` (approved on the Sarmila reel): the lead sits in a frosted pill,
+    // the word being spoken carries an accent box, keywords keep a colour ([text, at, 'key'|'red'|'gold']), and the
+    // hero word lands with a scale-in plus a light sheen.
+    const kara = !!o.karaoke;
+    const box = el('div', `cap${o.ink ? ' ink' : ''}${kara ? ' karaoke' : ''}`, ctx.root);
     box.style.top = `${o.y ?? 1130}px`;
-    const words = (list, cls) => { const line = el('div', cls, box); for (const [text, at] of list) ctx.anims.push(reveal(el('span', '', line, text), at)); };
-    if (o.lead) words(o.lead, 'lead');
+    const words = (list, cls, endAt) => {
+      const line = el('div', cls, box);
+      if (!kara) {
+        for (const [text, at] of list) ctx.anims.push(reveal(el('span', '', line, text), at));
+        return;
+      }
+      // The frosted pill behind the words fades up just before the first word.
+      ctx.anims.push({node: line, at: list[0][1] - .08, dur: .18, ease: EASE, frames: [{opacity: 0, transform: 'scale(.9)'}, {opacity: 1, transform: 'none'}]});
+      capWords(line, list, ctx, endAt);
+    };
+    if (o.lead) words(o.lead, 'lead', o.word ? o.wordAt : undefined);
     if (o.word) {
       const wrap = el('div', 'hero-wrap', box);
       for (const text of o.oneLine ? [o.word] : heroLines(o.word)) {
         const line = el('div', `hero ${o.tone}`, wrap, text);
         ctx.fit.push(line);
-        ctx.anims.push({node: line, at: o.wordAt, dur: .26, ease: EASE, frames: [{opacity: 0, clipPath: 'inset(-30% 105% -30% -5%)', filter: 'blur(12px)'}, {opacity: 1, clipPath: 'inset(-30% -5% -30% -5%)', filter: 'blur(0)'}]});
+        if (!kara) {
+          ctx.anims.push({node: line, at: o.wordAt, dur: .26, ease: EASE, frames: [{opacity: 0, clipPath: 'inset(-30% 105% -30% -5%)', filter: 'blur(12px)'}, {opacity: 1, clipPath: 'inset(-30% -5% -30% -5%)', filter: 'blur(0)'}]});
+          continue;
+        }
+        ctx.anims.push({node: line, at: o.wordAt, dur: .26, ease: EASE, frames: [{opacity: 0, clipPath: 'inset(-30% 105% -30% -5%)', filter: 'blur(12px)', scale: '1.28'}, {opacity: 1, clipPath: 'inset(-30% -5% -30% -5%)', filter: 'blur(0)', scale: '1'}]});
+        // A light sheen runs across the hero word once it has landed.
+        // (the tone's CSS has a white band as its first background layer, clipped to the glyphs)
+        ctx.anims.push({node: line, at: o.wordAt + .2, dur: .6, ease: 'ease-in-out', frames: [{backgroundPosition: '160% 0, 0 0'}, {backgroundPosition: '-60% 0, 0 0'}]});
       }
     }
     if (o.tail) words(o.tail, 'lead');
@@ -261,12 +325,13 @@ const builders = {
     return card;
   },
   commentSheet(o, ctx) {
-    const sheet = el('div', 'comment-sheet', ctx.root);
+    const sheet = el('div', `comment-sheet${o.style === 'dm' ? ' dm' : ''}`, ctx.root);
     const glow = el('i', 'sheet-glow', sheet);
     const input = el('div', 'comment-input', sheet);
-    el('b', 'face', input, 'You');
+    el('b', 'face', input, o.you ?? 'You');
     const typed = el('span', 'typed', input);
-    [...o.text].forEach((c, i) => ctx.anims.push({node: el('span', '', typed, c), at: o.typeAt + i * .05, dur: .1, ease: BACK, frames: [{opacity: 0, transform: 'translateY(26px) scale(.6)'}, {opacity: 1, transform: 'none'}]}));
+    // o.times: one time per letter, e.g. when the speaker spells the word out (R-E-S-P).
+    [...o.text].forEach((c, i) => ctx.anims.push({node: el('span', '', typed, c), at: o.times ? o.times[i] : o.typeAt + i * .05, dur: .12, ease: BACK, frames: [{opacity: 0, transform: 'translateY(26px) scale(.6)'}, {opacity: 1, transform: 'none'}]}));
     const caret = el('i', 'caret', typed);
     const send = el('div', 'send', input);
     send.innerHTML = '<svg viewBox="0 0 24 24"><path fill="#fff" d="M3 20.5 21.5 12 3 3.500V10l12 2-12 2z"/></svg>';
@@ -278,10 +343,10 @@ const builders = {
       ctx.anims.push({node: dot, at: o.sendAt, dur: .55, ease: 'cubic-bezier(.1,.7,.2,1)', frames: [{opacity: 0, transform: 'translate(0,0) scale(1)'}, {opacity: 1, transform: 'translate(0,0) scale(1)', offset: .02}, {opacity: 0, transform: `translate(${Math.cos(angle) * reach}px,${Math.sin(angle) * reach}px) scale(.2)`}]});
     });
     const posted = el('div', 'comment-row', sheet);
-    el('b', 'face', posted, 'You');
+    el('b', 'face', posted, o.you ?? 'You');
     const body = el('div', 'row-text', posted);
     el('small', '', body, o.when ?? 'abhi');
-    el('strong', '', body, o.text.toLowerCase());
+    el('strong', '', body, o.keepCase ? o.text : o.text.toLowerCase());
     const heart = el('span', 'heart', posted, '♥');
     ctx.anims.push(rise(posted, o.sendAt + .04, .28), {node: heart, at: o.sendAt + .4, dur: .34, ease: BACK, frames: [{transform: 'scale(0)'}, {transform: 'scale(1.5)', offset: .6}, {transform: 'scale(1)'}]});
     const dm = el('div', 'dm-row', sheet);
@@ -289,7 +354,7 @@ const builders = {
     const dmText = el('div', 'row-text', dm);
     el('strong', '', dmText, o.dmTitle);
     el('small', '', dmText, o.dmNote);
-    el('span', 'dm-badge', dm, 'NEW');
+    el('span', 'dm-badge', dm, o.dmBadge ?? 'NEW');
     const plane = el('div', 'plane', sheet);
     plane.innerHTML = '<svg viewBox="0 0 24 24"><path fill="#fff" d="M3 20.500 21.500 12 3 3.500V10l12 2-12 2z"/></svg>';
     ctx.anims.push(rise(dm, o.dmAt, .3));
@@ -505,6 +570,304 @@ const builders = {
       box.style.boxShadow = `0 26px 70px rgba(0,0,0,.6), 0 0 0 ${4 + 4 * (Math.sin(t * 9) + 1) / 2}px rgba(255, 61, 102, ${.35 + .35 * (Math.sin(t * 9) + 1) / 2})`;
     });
     return box;
+  },
+  // ---- Sarmila reel builders (8 Nov 2026): money-story graphics. Everything depends only on t. ----
+  chart(o, ctx) {
+    // Glass card with a line chart that draws itself: "flat" (bank, next to nothing), "down" (inflation),
+    // "compound" (exponential growth). Optional stat chips count up on their spoken word.
+    const W = o.w ?? 940, H = o.h ?? 430, id = `c${++CHART_ID}`;
+    const card = el('div', `chart-card ${o.tone ?? 'cyan'}`, ctx.root);
+    Object.assign(card.style, {left: `${o.x ?? (1080 - W) / 2}px`, top: `${o.y}px`, width: `${W}px`, height: `${H}px`});
+    const head = el('div', 'chart-head', card);
+    const icon = el('b', 'chart-icon', head);
+    icon.innerHTML = ICONS[o.icon] ?? '';
+    const titles = el('div', 'chart-titles', head);
+    const title = el('strong', '', titles, o.title ?? '');
+    const sub = el('small', '', titles, o.sub ?? '');
+    const statBox = el('div', 'chart-stats', head);
+    const stats = (o.stats ?? []).map(s => {
+      const box = el('div', `chart-stat ${s.tone ?? ''}`, statBox);
+      const v = el('b', '', box, '');
+      el('small', '', box, s.label);
+      ctx.anims.push(pop(box, s.at));
+      return {s, v, box};
+    });
+    const PW = W - 56, PH = H - 172;
+    const f = CURVES[o.mode ?? 'compound'];
+    const pts = Array.from({length: 61}, (_, i) => { const x = i / 60; return [14 + x * (PW - 28), 12 + f(x) * (PH - 24)]; });
+    const d = 'M' + pts.map(p => p.map(v => v.toFixed(1)).join(' ')).join(' L');
+    const area = `${d} L${pts[60][0].toFixed(1)} ${PH} L${pts[0][0].toFixed(1)} ${PH} Z`;
+    const plot = el('div', 'chart-plot', card);
+    plot.innerHTML = `<svg viewBox="0 0 ${PW} ${PH}" width="${PW}" height="${PH}"><defs>
+      <linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="ca1"/><stop offset="1" class="ca2"/></linearGradient>
+      <clipPath id="${id}k"><rect x="0" y="0" width="0" height="${PH}"/></clipPath></defs>
+      ${[.25, .5, .75].map(g => `<line x1="0" x2="${PW}" y1="${PH * g}" y2="${PH * g}" class="grid"/>`).join('')}
+      <path d="${area}" fill="url(#${id}g)" clip-path="url(#${id}k)"/>
+      <path d="${d}" class="line" pathLength="1"/>
+      <circle r="13" class="headdot"/></svg>`;
+    const clipRect = plot.querySelector('rect'), line = plot.querySelector('.line'), dot = plot.querySelector('.headdot');
+    const marks = (o.marks ?? []).map(m => {
+      const n = el('span', 'chart-mark', plot, m.label);
+      const p = pts[Math.round(m.p * 60)];
+      Object.assign(n.style, {left: `${p[0]}px`, top: `${p[1]}px`});
+      ctx.anims.push({node: n, at: m.at, dur: .28, ease: BACK, frames: [{opacity: 0, transform: 'translate(-50%,-130%) scale(.4)'}, {opacity: 1, transform: 'translate(-50%,-130%) scale(1)'}]});
+      return n;
+    });
+    if (o.tag) {
+      const tag = el('span', `chart-tag ${o.tagTone ?? o.tone ?? 'cyan'}`, plot, o.tag);
+      const p = pts[60];
+      Object.assign(tag.style, {right: '0px', top: `${Math.max(0, Math.min(PH - 70, p[1] - 90))}px`});
+      ctx.anims.push(pop(tag, o.tagAt));
+    }
+    ctx.anims.push(rise(card, o.in, .34));
+    ctx.anims.push(reveal(title, o.titleAt ?? o.in, .22), reveal(sub, o.subAt ?? o.titleAt ?? o.in, .22));
+    ctx.ticks.push(t => {
+      const p = smooth((t - o.drawAt) / (o.drawFor ?? 1.4));
+      line.style.strokeDashoffset = 1 - p;
+      clipRect.setAttribute('width', (PW * p).toFixed(1));
+      const q = pts[Math.round(p * 60)];
+      dot.setAttribute('cx', q[0]); dot.setAttribute('cy', q[1]);
+      dot.style.opacity = p > 0 && p < 1 ? 1 : p >= 1 ? .9 : 0;
+      dot.setAttribute('r', 11 + 4 * Math.abs(Math.sin(t * 6)));
+      for (const {s, v, box} of stats) {
+        const k = 1 - (1 - clamp((t - s.at) / (s.dur ?? .7))) ** 3;
+        v.textContent = `${s.prefix ?? ''}${(s.value * k).toFixed(s.decimals ?? 0)}${s.suffix ?? ''}`;
+        box.style.scale = 1 + .14 * Math.max(0, 1 - Math.abs(t - s.at - (s.dur ?? .7) - .05) / .14);
+      }
+    });
+    return card;
+  },
+  counter(o, ctx) {
+    // One huge number counting up on its word, with a label under it; a pulse when it lands.
+    const box = el('div', `counter ${o.tone ?? 'gold'}`, ctx.root);
+    box.style.top = `${o.y}px`;
+    const num = el('div', 'counter-num', box, '0');
+    const label = el('div', 'counter-label', box, o.label ?? '');
+    ctx.anims.push(pop(box, o.in, .3), reveal(label, o.labelAt ?? o.at, .22));
+    const ring = el('i', 'counter-ring', box);
+    ctx.anims.push({node: ring, at: o.at + (o.dur ?? .8), dur: .55, ease: 'ease-out', frames: [{opacity: .9, transform: 'translate(-50%,-50%) scale(.4)'}, {opacity: 0, transform: 'translate(-50%,-50%) scale(1.9)'}]});
+    ctx.ticks.push(t => {
+      const k = 1 - (1 - clamp((t - o.at) / (o.dur ?? .8))) ** 3;
+      const v = (o.from ?? 0) + (o.value - (o.from ?? 0)) * k;
+      num.textContent = `${o.prefix ?? ''}${v.toFixed(o.decimals ?? 0)}${o.suffix ?? ''}`;
+      num.style.scale = 1 + .12 * Math.max(0, 1 - Math.abs(t - o.at - (o.dur ?? .8) - .05) / .15);
+    });
+    return box;
+  },
+  progress(o, ctx) {
+    // A video progress bar whose playhead runs to the end ("watch till the end").
+    const box = el('div', 'progress-ui', ctx.root);
+    box.style.top = `${o.y}px`;
+    const track = el('div', 'pg-track', box);
+    const fill = el('i', 'pg-fill', track);
+    const head = el('b', 'pg-head', track);
+    const flag = el('span', 'pg-end', box, o.label ?? 'END');
+    ctx.anims.push(rise(box, o.in, .3), pop(flag, o.endAt));
+    ctx.ticks.push(t => {
+      const p = .1 + .9 * smooth((t - o.at) / (o.dur ?? .8));
+      fill.style.transform = `scaleX(${p})`;
+      head.style.left = `${p * 100}%`;
+    });
+    return box;
+  },
+  nameCard(o, ctx) {
+    // Lower third: "I'm", the name wiping in, the licence line with a check, and the mum-of-two chip.
+    const card = el('div', 'name-card', ctx.root);
+    card.style.top = `${o.y}px`;
+    const bar = el('i', 'name-bar', card);
+    const text = el('div', 'name-text', card);
+    const eyebrow = el('small', 'name-eyebrow', text, o.eyebrow ?? '');
+    const name = el('div', 'name-big', text, o.name);
+    const titleRow = el('div', 'name-title', text);
+    const tick = el('b', 'name-check', titleRow, '✓');
+    const title = el('span', '', titleRow);
+    capWords(title, o.title, ctx);
+    const chip = el('div', 'name-chip', text);
+    const chipText = el('span', '', chip);
+    capWords(chipText, o.chip, ctx);
+    const kids = Array.from({length: o.kids ?? 0}, (_, i) => { const k = el('b', 'kid', chip); k.innerHTML = ICONS.boy; ctx.anims.push(pop(k, o.kidsAt + i * .12, .3)); return k; });
+    ctx.anims.push(rise(card, o.in, .32));
+    ctx.anims.push({node: bar, at: o.in, dur: .3, ease: EASE, frames: [{transform: 'scaleY(0)'}, {transform: 'scaleY(1)'}]});
+    ctx.anims.push(reveal(eyebrow, o.in, .18));
+    ctx.anims.push({node: name, at: o.nameAt, dur: .34, ease: EASE, frames: [{opacity: 0, clipPath: 'inset(-20% 100% -20% 0)', filter: 'blur(10px)'}, {opacity: 1, clipPath: 'inset(-20% -5% -20% 0)', filter: 'blur(0)'}]});
+    ctx.anims.push(pop(tick, o.checkAt ?? o.title[0][1]), pop(chip, o.chip[0][1] - .05));
+    return card;
+  },
+  profile(o, ctx) {
+    // A son's card: avatar (with a mortarboard dropping on when he graduates), label, age counter, chips.
+    const card = el('div', `profile ${o.tone ?? 'gold'}`, ctx.root);
+    card.style.top = `${o.y}px`;
+    const av = el('div', 'pf-av', card);
+    el('div', 'pf-avatar', av).innerHTML = ICONS.boy;
+    if (o.capAt !== undefined) {
+      const hat = el('b', 'pf-cap', av);
+      hat.innerHTML = ICONS.grad;
+      ctx.anims.push({node: hat, at: o.capAt, dur: .4, ease: BACK, frames: [{opacity: 0, transform: 'translateY(-150px) rotate(-40deg)'}, {opacity: 1, transform: 'rotate(-8deg)'}]});
+    }
+    const body = el('div', 'pf-body', card);
+    const label = el('div', 'pf-label', body);
+    capWords(label, o.label, ctx);
+    const ageRow = el('div', 'pf-age', body);
+    const ageNum = el('b', '', ageRow, '0');
+    el('span', '', ageRow, o.ageLabel ?? 'years old');
+    const chips = el('div', 'pf-chips', body);
+    for (const c of o.chips ?? []) {
+      const chip = el('span', `pf-chip ${c.tone ?? ''}`, chips);
+      if (c.icon) el('b', '', chip).innerHTML = ICONS[c.icon];
+      el('span', '', chip, c.text);
+      ctx.anims.push(pop(chip, c.at));
+    }
+    ctx.anims.push(rise(card, o.in, .32), reveal(ageRow, o.ageAt - .05, .2));
+    ctx.ticks.push(t => {
+      ageNum.textContent = Math.round(o.age * (1 - (1 - clamp((t - o.ageAt) / .55)) ** 3));
+      ageNum.style.scale = 1 + .16 * Math.max(0, 1 - Math.abs(t - o.ageAt - .6) / .14);
+    });
+    return card;
+  },
+  transfer(o, ctx) {
+    // Bank card -> lane with RESP coins flying -> segregated fund card that lights up on arrival.
+    const box = el('div', 'transfer', ctx.root);
+    box.style.top = `${o.y}px`;
+    const chip = el('div', 'tf-chip', box);
+    capWords(chip, o.chip, ctx);
+    const row = el('div', 'tf-row', box);
+    const card = (side, tone) => {
+      const c = el('div', `tf-card ${tone}`, row);
+      el('b', 'tf-icon', c).innerHTML = ICONS[side.icon];
+      el('strong', '', c, side.title);
+      if (side.sub) el('small', '', c, side.sub);
+      ctx.anims.push(pop(c, side.at, .3));
+      return c;
+    };
+    const from = card(o.from, 'red');
+    const lane = el('div', 'tf-lane', row);
+    const track = el('i', 'tf-track', lane);
+    const coins = [0, 1, 2].map(i => el('b', 'tf-coin', lane, o.coin ?? 'RESP'));
+    const to = card(o.to, 'cyan');
+    ctx.anims.push({node: track, at: o.flyAt - .1, dur: .3, ease: EASE, frames: [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}]});
+    ctx.ticks.push(t => {
+      coins.forEach((c, i) => {
+        const p = clamp((t - o.flyAt - i * .16) / .55);
+        const e = smooth(p);
+        c.style.opacity = p > 0 && p < 1 ? 1 : 0;
+        c.style.transform = `translate(${-20 + e * 170}px, ${-Math.sin(e * Math.PI) * 60}px) scale(${.8 + .3 * Math.sin(e * Math.PI)})`;
+      });
+      const land = Math.max(0, 1 - Math.abs(t - o.flyAt - .7) / .3);
+      to.style.boxShadow = `0 26px 70px rgba(0,0,0,.55), 0 0 ${40 + 80 * land}px rgba(46, 230, 255,${.25 + .5 * land})`;
+      to.style.scale = 1 + .06 * land;
+      from.style.filter = t > o.flyAt + .5 ? 'saturate(.55) brightness(.85)' : 'none';
+    });
+    return box;
+  },
+  darkBoard(o, ctx) {
+    // Full-screen deep accent board (covers the speaker and the source's own baked-in screenshot).
+    const b = el('div', 'dark-board', ctx.root);
+    el('i', 'db-grid', b);
+    const glow = el('i', 'db-glow', b);
+    ctx.anims.push({node: b, at: o.in, dur: o.fade ?? .2, ease: EASE, frames: [{opacity: 0}, {opacity: 1}]});
+    ctx.ticks.push(t => { glow.style.transform = `rotate(${t * 40}deg)`; });
+    return b;
+  },
+  flash(o, ctx) {
+    const f = el('div', `flash ${o.tone ?? ''}`, ctx.root);
+    ctx.anims.push({node: f, at: o.in, dur: o.dur ?? .32, ease: 'ease-out', frames: [{opacity: 0}, {opacity: o.peak ?? .85, offset: .15}, {opacity: 0}]});
+    return f;
+  },
+  proof(o, ctx) {
+    // The real screenshot the client showed, tilting up into place; a ring lands on the number.
+    const card = el('div', 'proof', ctx.root);
+    Object.assign(card.style, {left: `${o.x}px`, top: `${o.y}px`, width: `${o.w}px`});
+    el('img', '', card).src = o.src;
+    const ring = el('i', 'proof-ring', card);
+    const [rx, ry, rw, rh] = o.ring;
+    Object.assign(ring.style, {left: `${rx}%`, top: `${ry}%`, width: `${rw}%`, height: `${rh}%`});
+    const shine = el('i', 'proof-shine', card);
+    ctx.ticks.push(t => {
+      const e = smooth((t - o.in) / .42);
+      card.style.opacity = e;
+      card.style.transform = `perspective(1400px) translateY(${(1 - e) * 120}px) rotateX(${(1 - e) * 26}deg) scale(${.9 + .1 * e + Math.max(0, t - o.in) * .012})`;
+      const r = clamp((t - o.ringAt) / .3);
+      ring.style.opacity = r;
+      ring.style.transform = `scale(${1.6 - .6 * smooth(r) + .04 * Math.sin(t * 8) * r})`;
+      shine.style.transform = `translateX(${-400 + 1900 * clamp((t - o.in - .35) / .6)}px) skewX(-18deg)`;
+    });
+    return card;
+  },
+  compare(o, ctx) {
+    // Two bars: the bank's 1.29% stub against the fund's 40%+ tower.
+    const box = el('div', 'compare', ctx.root);
+    Object.assign(box.style, {top: `${o.y}px`, height: `${o.h ?? 760}px`});
+    for (const item of o.items) {
+      const col = el('div', `cmp-col ${item.tone}`, box);
+      const bar = el('div', 'cmp-bar', col);
+      const val = el('b', 'cmp-val', bar, '');
+      const fill = el('i', '', bar);
+      el('b', 'cmp-icon', col).innerHTML = ICONS[item.icon] ?? '';
+      el('span', 'cmp-label', col, item.label);
+      ctx.anims.push(reveal(col, o.in, .22));
+      ctx.ticks.push(t => {
+        const k = 1 - (1 - clamp((t - item.at) / (item.dur ?? .6))) ** 3;
+        fill.style.height = `${item.h * k}%`;
+        val.textContent = `${(item.value * k).toFixed(item.decimals ?? 0)}${item.suffix ?? ''}`;
+        val.style.bottom = `${item.h * k}%`;
+      });
+    }
+    return box;
+  },
+  sheetList(o, ctx) {
+    // Bottom glass sheet with rows (cross / check / bank icon) whose words are karaoke captions.
+    const sheet = el('div', 'sheet-list', ctx.root);
+    sheet.style.top = `${o.y}px`;
+    const glow = el('i', 'sheet-glow', sheet);
+    for (const row of o.rows) {
+      const r = el('div', `sl-row ${row.icon}`, sheet);
+      const dot = el('b', `sl-dot ${row.icon}`, r);
+      if (row.icon === 'x') dot.textContent = '✕'; else if (row.icon === 'check') dot.textContent = '✓'; else dot.innerHTML = ICONS[row.icon] ?? '';
+      const text = el('div', 'sl-text', r);
+      capWords(text, row.words, ctx, row.endAt);
+      ctx.anims.push(rise(r, row.at, .28));
+      if (row.strikeAt !== undefined) {
+        const s = el('i', 'sl-strike', r);
+        ctx.anims.push({node: s, at: row.strikeAt, dur: .22, ease: EASE, frames: [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}]});
+      }
+    }
+    // riseAt < in pre-rolls the entrance, so the sheet is already in place on the beat's first frame.
+    ctx.anims.push({node: sheet, at: o.riseAt ?? o.in, dur: .32, ease: EASE, frames: [{opacity: 0, transform: 'translateY(160px)'}, {opacity: 1, transform: 'none'}]});
+    ctx.ticks.push(t => { glow.style.transform = `rotate(${t * 60}deg)`; });
+    return sheet;
+  },
+  statement(o, ctx) {
+    // An RESP statement card; a magnifier glides to the rate-of-return row, which lights up with "?%".
+    const card = el('div', 'statement', ctx.root);
+    card.style.top = `${o.y}px`;
+    const head = el('div', 'st-head', card);
+    el('b', 'st-icon', head).innerHTML = ICONS.doc;
+    const ht = el('div', 'st-titles', head);
+    el('strong', '', ht, o.title);
+    el('small', '', ht, o.sub ?? '');
+    const rows = o.rows.map(r => {
+      const row = el('div', `st-row${r.hot ? ' hot' : ''}`, card);
+      el('span', 'st-k', row, r.k);
+      const v = el('b', 'st-v', row, r.v);
+      ctx.anims.push(reveal(row, r.at, .22));
+      return {row, v, r};
+    });
+    const lens = el('div', 'st-lens', card);
+    lens.innerHTML = ICONS.lens;
+    ctx.anims.push(rise(card, o.in, .32));
+    ctx.ticks.push(t => {
+      const p = smooth((t - o.lensAt) / .5);
+      const hot = rows.find(x => x.r.hot);
+      const ty = hot ? hot.row.offsetTop - 30 : 200;
+      lens.style.opacity = clamp((t - o.lensAt + .1) / .15);
+      lens.style.transform = `translate(${760 - 300 * p + Math.sin(t * 3) * 14 * p}px, ${-60 + (ty + 60) * p + Math.cos(t * 2.4) * 8 * p}px) rotate(${-18 + 10 * p}deg)`;
+      if (hot) {
+        const on = t >= o.hotAt;
+        hot.row.classList.toggle('lit', on);
+        hot.v.style.scale = on ? 1 + .1 * Math.abs(Math.sin((t - o.hotAt) * 5)) : 1;
+      }
+    });
+    return card;
   },
   hand(o, ctx) {
     const hand = el('div', 'hand', ctx.root);
