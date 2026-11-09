@@ -14,6 +14,7 @@ Old kits are kept in `Brand Kit/history/`, never deleted.
 | 4 Nov 2026 | Cutout on a dark set rejected (ragged edges). **Real room, lightly blurred** (`bgMode: "room"`) became the default | (this kit) |
 | 5 Nov 2026 | New colour for Muse: **electric cyan**. Muse approved | (this kit) |
 | 7 Nov 2026 | **Acid lime** (`#C6FF3A`) used on the Abliterated-model reel, with karaoke-highlight plain captions. **Not yet approved**: if approved, add it here and run `set_accent.py --preset lime` | (pending) |
+| 8 Nov 2026 | Client reel (English, phone selfie) approved with **emerald**, **karaoke captions**, **plain mode** and 12 money/proof builders. Ported into the template on 9 Nov in this kit's cyan. Karaoke is opt-in (`"karaoke": true`), so the two-tier captions below stay the house default | (this kit) |
 
 The skill template now ships cyan, so a new project starts in this kit's colour with no extra step. Run `.claude/skills/talking-head-reel/scripts/set_accent.py` to change it (presets `cyan`, `amber`, `lime`, or any `--hex`).
 
@@ -96,6 +97,11 @@ Each one must be triggered by a spoken word. If nobody says it, it does not appe
 | Editor timeline with the length counter climbing | Muse | Video length or editing lines |
 | Step rail across the top | Muse | How-to steps |
 | Scrambling offer countdown | Muse | "Nobody knows how long" offers |
+| Karaoke captions (accent word box, coloured keywords, sheen hero) | Sarmila (client) | Opt-in per reel, e.g. English talking-head clients |
+| Line chart drawing itself, number counter, compare bars | Sarmila (client) | Money, growth, returns, any spoken number or comparison |
+| Name card, person profile, transfer lane | Sarmila (client) | "I'm X", "my son is 18", "I moved X from A to B" |
+| Proof screenshot with ring, account statement with magnifier | Sarmila (client) | "Here's the proof", "check your statement" |
+| Bottom sheet list, dark board, red flash | Sarmila (client) | Disclaimers and do/don't lists, hiding baked-in screens, shock words |
 | White plus red stacked word with a big hand tap | reference | Final call to action |
 | Mint opener with a circular speaker | reference | **Not used**: rejected in the VoiceStudio review |
 
