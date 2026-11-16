@@ -2,6 +2,8 @@
 
 A private website for the studio. Clients sign in, send footage and get their edited reel back. You run everything from `/admin`. The full plan is in [Client Portal Plan.pdf](Client%20Portal%20Plan.pdf).
 
+It's built for [AI Reel Studio](https://github.com/tanmayybuilds/ai-reel-studio), where it lives in the `portal/` folder and saves footage to the studio's `Raw/` and `Exports/` folders. If you clone it on its own, set `STUDIO_ROOT` in `.env` to your studio folder. Otherwise it uses the folder above this one.
+
 ## Run it
 
 ```bash
