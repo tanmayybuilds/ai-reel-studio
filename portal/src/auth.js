@@ -5,7 +5,8 @@ import { config } from './config.js';
 
 const scrypt = promisify(crypto.scrypt);
 const SCRYPT = { N: 16384, r: 8, p: 1 };
-const COOKIE = 'rs_sid';
+// The __Host- prefix makes browsers refuse the cookie unless it's Secure, host-only and path=/.
+const COOKIE = config.secureCookies ? '__Host-rs_sid' : 'rs_sid';
 
 // ---------- passwords ----------
 
@@ -116,8 +117,9 @@ export function sessionMiddleware(req, res, next) {
       user = null;
     }
   }
-  // Anonymous visitors get a session too, so the sign-in form has a CSRF token.
-  if (!session && req.method === 'GET') session = createSession(res);
+  // The sign-in form needs a CSRF token, so visitors get a session there (and only there: bots and
+  // stray requests elsewhere don't create database rows).
+  if (!session && req.method === 'GET' && req.path === '/login') session = createSession(res);
 
   req.session = session;
   req.user = user;
@@ -150,7 +152,12 @@ export function signIn(req, res, user) {
 
 export function signOut(req, res) {
   if (req.session) db.prepare('DELETE FROM sessions WHERE id = ?').run(req.session.id);
-  res.clearCookie(COOKIE, { path: '/' });
+  res.clearCookie(COOKIE, { path: '/', httpOnly: true, sameSite: 'lax', secure: config.secureCookies });
+}
+
+/** Sign a user out everywhere except this session (after a password change). */
+export function signOutOthers(req) {
+  db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(req.user.id, req.session.id);
 }
 
 export function purgeExpiredSessions() {

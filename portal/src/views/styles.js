@@ -1,5 +1,5 @@
 import { html } from '../html.js';
-import { page, icon } from './layout.js';
+import { page, icon, asset } from './layout.js';
 import { MAX_STYLES } from '../styles.js';
 
 const poster = (s) => (s.dir ? `/styles/${s.id}/poster.jpg` : '');
@@ -51,12 +51,12 @@ export function stylesPage(req, { styles, approved, active }) {
     <div class="split-even">
       <section class="card">
         <h3 class="card-title">${icon.upload} Upload a reel</h3>
-        <form class="stack" data-style-upload>
+        <form class="stack" data-chunk-upload data-purpose="style">
           <label class="field"><span>Name</span><input name="name" maxlength="60" required placeholder="e.g. Bright & punchy"></label>
           <label class="field"><span>What makes it different <em>optional</em></span><textarea name="description" rows="2" maxlength="240" placeholder="e.g. Colour hero words, website cards, fast cuts"></textarea></label>
           <label class="field"><span>Video</span><input type="file" name="file" accept=".mp4,.mov,.m4v,.webm" required></label>
-          <div class="bar" hidden data-style-bar><span></span></div>
-          <p class="muted small" data-style-msg>A light preview is made for clients. Your file is kept as it is.</p>
+          <div class="bar" hidden data-bar><span></span></div>
+          <p class="muted small" data-msg>A light preview is made for clients. Your file is kept as it is.</p>
           <button class="btn btn-primary" type="submit">Add style</button>
         </form>
       </section>
@@ -74,7 +74,7 @@ export function stylesPage(req, { styles, approved, active }) {
           </li>`)}</ul>` : html`<p class="muted">Every reel in <code>Approved Videos/</code> is already a style, or the folder is empty.</p>`}
       </section>
     </div>
-    <script src="/js/styles.js" defer></script>`,
+    <script src="${asset('/js/xhr-upload.js')}" defer></script>`,
   });
 }
 
@@ -87,14 +87,15 @@ export function referencePicker({ styles, form }) {
     <input type="hidden" name="ref_mode" value="${mode}">
     ${styles.length ? html`
     <div class="seg" role="tablist" aria-label="Reference or style">
-      <button type="button" role="tab" data-ref-tab="reference" aria-selected="${String(mode === 'reference')}">${icon.link} I have a reference reel</button>
-      <button type="button" role="tab" data-ref-tab="style" aria-selected="${String(mode === 'style')}">${icon.wand} No reference? Pick our style</button>
+      <button type="button" role="tab" data-ref-tab="reference" aria-selected="${String(mode === 'reference')}">${icon.link} Reference reel</button>
+      <button type="button" role="tab" data-ref-tab="style" aria-selected="${String(mode === 'style')}">${icon.wand} Pick our style</button>
     </div>` : ''}
 
     <div data-ref-panel="reference" ${mode === 'reference' ? '' : 'hidden'}>
-      <label class="field"><span>Reference reel link <em>optional</em></span>
-        <div class="input-icon">${icon.link}<input type="url" name="reference_url" value="${form.reference_url || ''}" placeholder="https://www.instagram.com/reel/…" inputmode="url"></div>
-        <small class="help">A reel whose style you like: Instagram, TikTok, YouTube or anywhere else.</small></label>
+      <label class="field"><span>Reference reel link</span>
+        <div class="input-icon">${icon.link}<input type="url" name="reference_url" value="${form.reference_url || ''}" placeholder="https://www.instagram.com/reel/…"
+          inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        <small class="help">A reel whose style you like: Instagram, TikTok, YouTube or anywhere else.${styles.length ? ' No reference? Tap “Pick our style”.' : ''}</small></label>
     </div>
 
     ${styles.length ? html`

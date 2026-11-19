@@ -1,7 +1,7 @@
 import { html, timeAgo } from '../html.js';
 import { humanSize } from '../storage.js';
 import { config } from '../config.js';
-import { page, icon } from './layout.js';
+import { page, icon, asset } from './layout.js';
 
 function credentialsCard(c) {
   const loginUrl = `${config.siteUrl}/login`;
@@ -84,6 +84,7 @@ export function clientsPage(req, { clients, form = {}, error = '' }) {
               <td>${c.disabled ? html`<span class="badge badge-off">Turned off</span>` : html`<span class="badge badge-ok">Active</span>`}</td>
               <td class="t-right">
                 <div class="actions">
+                  <a class="btn btn-ghost btn-sm" href="/admin/clients/${c.id}">Edit</a>
                   <form method="post" action="/admin/clients/${c.id}/reset" data-confirm="Make a new password for ${c.name}? Their old password stops working.">
                     <input type="hidden" name="_csrf" value="${req.csrf}">
                     <button class="btn btn-ghost btn-sm" type="submit">New password</button>
@@ -167,7 +168,7 @@ const STATUS_LABEL = {
 };
 export const statusBadgeAdmin = (s) => html`<span class="badge badge-${(STATUS_LABEL[s] || STATUS_LABEL.draft)[1]}">${(STATUS_LABEL[s] || STATUS_LABEL.draft)[0]}</span>`;
 
-export function workspacePage(req, { video, client, files, folderAbs, chat, canReveal, versions = [], final = null, changeRequest = null, exportsList = [] }) {
+export function workspacePage(req, { video, client, files, chat, versions = [], changeRequest = null }) {
   const working = WORKING.includes(video.status);
   const by = (k) => files.filter((f) => f.kind === k);
   const fileRows = (list) => list.map((f) => html`
@@ -212,17 +213,13 @@ export function workspacePage(req, { video, client, files, folderAbs, chat, canR
 
         <section class="card">
           <h2 class="card-title">${icon.folder} Footage &amp; brief</h2>
-          ${video.folder ? html`
-          <div class="ws-folder">
-            <code>${video.folder}/</code>
-            <div class="row">
-              <button class="btn btn-ghost btn-sm" type="button" data-copy-text="${folderAbs}">${icon.copy} Copy path</button>
-              ${canReveal ? html`<form method="post" action="/admin/videos/${video.id}/reveal"><input type="hidden" name="_csrf" value="${req.csrf}"><button class="btn btn-ghost btn-sm" type="submit">${icon.folder} Show in Finder</button></form>` : ''}
-            </div>
+          ${video.drive_url ? html`
+          <div class="ws-footage">
+            <a class="btn btn-primary" href="${video.drive_url}" target="_blank" rel="noopener noreferrer">${icon.drive} Open the footage in Google Drive</a>
+            <button class="btn btn-ghost" type="button" data-copy-text="${video.drive_url}">${icon.copy} Copy link</button>
           </div>` : ''}
           <dl class="sent ws-sent">
-            ${by('raw').length ? html`<dt>Raw footage</dt><dd><ul class="ws-files">${fileRows(by('raw'))}</ul></dd>` : ''}
-            ${video.drive_url ? html`<dt>Google Drive</dt><dd><a href="${video.drive_url}" target="_blank" rel="noopener noreferrer">${video.drive_url}</a></dd>` : ''}
+            ${by('raw').length ? html`<dt>Uploaded footage</dt><dd><ul class="ws-files">${fileRows(by('raw'))}</ul></dd>` : ''}
             ${video.reference_url ? html`<dt>Reference reel</dt><dd><a href="${video.reference_url}" target="_blank" rel="noopener noreferrer">${video.reference_url}</a></dd>` : ''}
             ${video.style_name ? html`<dt>Style picked</dt><dd>${video.style_id ? html`<a href="/styles/${video.style_id}/preview.mp4" target="_blank" rel="noopener">${video.style_name}</a>` : video.style_name}</dd>` : ''}
             ${by('voiceover').length ? html`<dt>Voiceover</dt><dd><ul class="ws-files">${fileRows(by('voiceover'))}</ul></dd>` : ''}
@@ -231,79 +228,95 @@ export function workspacePage(req, { video, client, files, folderAbs, chat, canR
           </dl>
         </section>
 
-        ${stageCards(req, { video, versions, final, changeRequest, exportsList })}
+        ${stageCards(req, { video, client, versions, changeRequest })}
       </div>
       <div class="ws-side">${chat}</div>
-    </div>
-    <script src="/js/xhr-upload.js" defer></script>`,
+    </div>`,
   });
 }
 
-// ---------- workspace: send edits, deliver ----------
+// ---------- workspace: send edits, deliver, share ----------
 
-function exportOptions(list) {
-  return list.map((e) => html`<option value="${e.rel}">${e.rel.replace(/^Exports\//, '')} · ${humanSize(e.size)} · ${timeAgo(e.mtime)}</option>`);
-}
+const enc = encodeURIComponent;
+const first = (name) => String(name || '').split(' ')[0] || 'there';
 
-function uploadForm({ action, label, button, extra = '' }) {
+/**
+ * "Send via Gmail" (opens Gmail with the email written), "WhatsApp" (opens WhatsApp with the message),
+ * and "Copy message". Works even before the portal's own email is set up.
+ */
+function shareRow({ to, subject, body }) {
+  const gmail = `https://mail.google.com/mail/?view=cm&fs=1&to=${enc(to)}&su=${enc(subject)}&body=${enc(body)}`;
+  const whatsapp = `https://wa.me/?text=${enc(body)}`;
   return html`
-  <form class="stack xhr-upload" data-xhr-upload data-action="${action}">
-    <label class="field"><span>${label}</span><input type="file" name="file" accept=".mp4,.mov,.m4v,.webm" required></label>
-    ${extra}
-    <div class="bar" hidden data-bar><span></span></div>
-    <p class="muted small" data-msg hidden></p>
-    <button class="btn btn-primary" type="submit">${button}</button>
-  </form>`;
+  <div class="share-row">
+    <a class="btn btn-sm" href="${gmail}" target="_blank" rel="noopener noreferrer">${icon.mail} Send via Gmail</a>
+    <a class="btn btn-sm" href="${whatsapp}" target="_blank" rel="noopener noreferrer">${icon.chat} WhatsApp</a>
+    <button class="btn btn-ghost btn-sm" type="button" data-copy-text="${body}">${icon.copy} Copy message</button>
+  </div>`;
 }
 
-function versionsList(versions, approved) {
+function versionMessage(video, client, v) {
+  const url = `${config.siteUrl}/videos/${video.id}`;
+  return {
+    to: video.notify_email,
+    subject: v.number === 1 ? `Your video “${video.title}” is ready` : `Version ${v.number} of “${video.title}” is ready`,
+    body: `Hi ${first(client.name)},\n\n${v.number === 1 ? 'Your video' : `Version ${v.number} of`} “${video.title}” is ready. Watch it here, then approve it or ask for changes:\n${url}\n\n${v.note ? `${v.note}\n\n` : ''}${config.portalName}`,
+  };
+}
+
+function deliveredMessage(video, client) {
+  const url = `${config.siteUrl}/videos/${video.id}`;
+  return {
+    to: video.notify_email,
+    subject: `Your final video “${video.title}” is ready`,
+    body: `Hi ${first(client.name)},\n\nYour final video “${video.title}” is ready to download:\n${url}\n\nGoogle Drive: ${video.final_drive_url}\n\n${config.portalName}`,
+  };
+}
+
+const driveField = (name, label, placeholder = 'https://drive.google.com/file/d/…') => html`
+  <label class="field"><span>${label}</span>
+    <div class="input-icon">${icon.drive}<input type="url" name="${name}" required inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${placeholder}"></div>
+    <small class="help">Share it as <strong>Anyone with the link</strong> first. A file link plays inside the client's portal.</small></label>`;
+
+function versionsList(video, client, versions, approved) {
   if (!versions.length) return '';
   return html`
   <section class="card">
     <h2 class="card-title">${icon.film} Versions sent</h2>
     <ul class="ws-versions">${versions.slice().reverse().map((v) => html`
       <li>
-        <video src="/admin/files/${v.file_id}/stream" preload="metadata" controls playsinline muted></video>
+        ${v.file_id && !v.link ? html`<video src="/admin/files/${v.file_id}/stream" preload="metadata" controls playsinline muted></video>` : ''}
         <div class="ws-vmeta">
-          <strong>v${v.number}</strong>${approved === v.number ? html` <span class="badge badge-ok">Approved</span>` : ''}
-          <span class="muted small">Sent <time data-ts="${v.created_at}">${clockTime(v.created_at)}</time> · ${humanSize(v.size)}</span>
+          <div><strong>v${v.number}</strong>${approved === v.number ? html` <span class="badge badge-ok">Approved</span>` : ''}
+            <span class="muted small">· sent <time data-ts="${v.created_at}">${clockTime(v.created_at)}</time></span></div>
           ${v.note ? html`<p class="small pre">${v.note}</p>` : ''}
-          <a class="small" href="/admin/files/${v.file_id}">${icon.download} Download</a>
+          ${v.link ? html`<a class="small" href="${v.link}" target="_blank" rel="noopener noreferrer">${icon.drive} Open in Google Drive</a>` : html`<a class="small" href="/admin/files/${v.file_id}">${icon.download} Download</a>`}
+          ${v.number === versions.at(-1).number && video.status === 'review' ? html`
+          <p class="muted small share-label">The client has been told by email. Message them yourself too:</p>
+          ${shareRow(versionMessage(video, client, v))}` : ''}
         </div>
       </li>`)}
     </ul>
   </section>`;
 }
 
-function stageCards(req, { video, versions, final, changeRequest, exportsList }) {
+function stageCards(req, { video, client, versions, changeRequest }) {
   const csrf = html`<input type="hidden" name="_csrf" value="${req.csrf}">`;
   const next = (versions.at(-1)?.number || 0) + 1;
   const sendEdit = html`
   <section class="card ws-send">
-    <h2 class="card-title">${icon.upload} ${versions.length ? `Send version ${next}` : 'Send the edit'}</h2>
-    <p class="muted small">The client gets a review screen with the video, a changes box and an export button.</p>
-    <div class="ws-send-grid">
-      ${uploadForm({
-        action: `/admin/videos/${video.id}/versions`,
-        label: 'Upload from your computer',
-        button: `Send v${next} for review`,
-        extra: html`<label class="field"><span>Note for the client <em>optional</em></span><textarea name="note" rows="2" maxlength="2000" placeholder="e.g. Added the logo end card and tightened the intro."></textarea></label>`,
-      })}
-      <form method="post" action="/admin/videos/${video.id}/versions/from-exports" class="stack">
-        ${csrf}
-        <label class="field"><span>Or pick a render from Exports/</span>
-          ${exportsList.length
-            ? html`<select name="rel" required>${exportOptions(exportsList)}</select>`
-            : html`<p class="muted small">Nothing new in <code>Exports/</code>. Renders from the editing skills show up here.</p>`}
-        </label>
-        ${exportsList.length ? html`
-        <label class="field"><span>Note for the client <em>optional</em></span><textarea name="note" rows="2" maxlength="2000"></textarea></label>
-        <button class="btn" type="submit">Send v${next} for review</button>` : ''}
-      </form>
-    </div>
+    <h2 class="card-title">${icon.send} ${versions.length ? `Send version ${next}` : 'Send the edit'}</h2>
+    <p class="muted small">Upload the edit to Google Drive, share it, and paste the link. The client gets an email and a review screen that plays it.</p>
+    <form method="post" action="/admin/videos/${video.id}/versions" class="stack">
+      ${csrf}
+      ${driveField('link', 'Google Drive link to the edited video')}
+      <label class="field"><span>Note for the client <em>optional</em></span>
+        <textarea name="note" rows="2" maxlength="2000" placeholder="e.g. Added the logo end card and tightened the intro."></textarea></label>
+      <button class="btn btn-primary" type="submit">Send v${next} for review</button>
+    </form>
   </section>`;
 
-  if (video.status === 'editing') return html`${sendEdit}${versionsList(versions, video.approved_version)}`;
+  if (video.status === 'editing') return html`${sendEdit}${versionsList(video, client, versions, video.approved_version)}`;
 
   if (video.status === 'changes') {
     return html`
@@ -313,16 +326,16 @@ function stageCards(req, { video, versions, final, changeRequest, exportsList })
       <blockquote class="pre">${changeRequest.body}</blockquote>
       <p class="muted small">Asked <time data-ts="${changeRequest.created_at}">${clockTime(changeRequest.created_at)}</time></p>
     </section>` : ''}
-    ${sendEdit}${versionsList(versions, video.approved_version)}`;
+    ${sendEdit}${versionsList(video, client, versions, video.approved_version)}`;
   }
 
   if (video.status === 'review') {
     return html`
     <section class="card ws-wait">
       <h2 class="card-title">${icon.clock} Waiting for the client to review v${versions.at(-1)?.number}</h2>
-      <p class="muted">They can ask for changes or approve it for export. You'll see it here and in the chat.</p>
+      <p class="muted">They can ask for changes or approve it. You'll see it here and in the chat.</p>
     </section>
-    ${versionsList(versions, video.approved_version)}
+    ${versionsList(video, client, versions, video.approved_version)}
     <details class="card ws-more"><summary>Send another version anyway</summary>${sendEdit}</details>`;
   }
 
@@ -331,40 +344,71 @@ function stageCards(req, { video, versions, final, changeRequest, exportsList })
     return html`
     <section class="card ws-deliver-card">
       <h2 class="card-title">${icon.check} Approved v${approved?.number}. Deliver the final</h2>
+      ${approved?.link ? html`
       <form method="post" action="/admin/videos/${video.id}/deliver" class="stack">
-        ${csrf}
-        <label class="field"><span>Final file</span>
-          <select name="source">
-            ${approved ? html`<option value="approved">Use approved v${approved.number} as the final (${humanSize(approved.size)})</option>` : ''}
-            ${exportsList.length ? html`<optgroup label="A new render from Exports/">${exportsList.map((e) => html`<option value="exports:${e.rel}">${e.rel.replace(/^Exports\//, '')} · ${humanSize(e.size)}</option>`)}</optgroup>` : ''}
-            <option value="none">No file, Google Drive link only</option>
-          </select></label>
-        <label class="field"><span>Google Drive link <em>optional</em></span>
-          <div class="input-icon">${icon.drive}<input type="url" name="drive_url" placeholder="https://drive.google.com/…" inputmode="url"></div></label>
-        <button class="btn btn-primary" type="submit">Deliver to client</button>
+        ${csrf}<input type="hidden" name="source" value="approved">
+        <p class="muted small">Same file as the approved version? Deliver it as it is:</p>
+        <button class="btn btn-primary" type="submit">${icon.check} Deliver v${approved.number} as the final</button>
       </form>
-      <details class="ws-more-inline"><summary>Or upload a separate final file</summary>
-        ${uploadForm({
-          action: `/admin/videos/${video.id}/deliver/upload`,
-          label: 'Final file',
-          button: 'Upload and deliver',
-          extra: html`<label class="field"><span>Google Drive link <em>optional</em></span><input type="url" name="drive_url" placeholder="https://drive.google.com/…"></label>`,
-        })}
-      </details>
+      <div class="or"><span>or a different file</span></div>` : ''}
+      <form method="post" action="/admin/videos/${video.id}/deliver" class="stack">
+        ${csrf}<input type="hidden" name="source" value="new">
+        ${driveField('drive_url', 'Google Drive link to the final video')}
+        <button class="btn ${approved?.link ? '' : 'btn-primary'}" type="submit">Deliver this link</button>
+      </form>
     </section>
-    ${versionsList(versions, video.approved_version)}`;
+    ${versionsList(video, client, versions, video.approved_version)}`;
   }
 
   if (video.status === 'delivered') {
     return html`
     <section class="card ws-delivered">
       <h2 class="card-title">${icon.check} Delivered <time data-ts="${video.delivered_at}">${clockTime(video.delivered_at)}</time></h2>
-      <dl class="sent">
-        ${final ? html`<dt>Final file</dt><dd><a href="/admin/files/${final.id}">${icon.download} ${final.original_name}</a> <span class="muted">${humanSize(final.size)}</span></dd>` : ''}
-        ${video.final_drive_url ? html`<dt>Google Drive</dt><dd><a href="${video.final_drive_url}" target="_blank" rel="noopener noreferrer">${video.final_drive_url}</a></dd>` : ''}
-      </dl>
+      ${video.final_drive_url ? html`
+      <p><a href="${video.final_drive_url}" target="_blank" rel="noopener noreferrer">${icon.drive} ${video.final_drive_url}</a></p>
+      <p class="muted small share-label">The client has been told by email. Message them yourself too:</p>
+      ${shareRow(deliveredMessage(video, client))}` : ''}
     </section>
-    ${versionsList(versions, video.approved_version)}`;
+    ${versionsList(video, client, versions, video.approved_version)}`;
   }
   return '';
+}
+
+// ---------- edit one client ----------
+
+export function clientEditPage(req, { client, videos, form, error = '' }) {
+  return page({
+    title: `Edit ${client.name}`,
+    req,
+    active: 'clients',
+    body: html`
+    <div class="ws-head">
+      <a class="back" href="/admin/clients">← Clients</a>
+      <h1>${client.name}</h1>
+      <p class="muted">Client since <time data-ts="${client.created_at}">${clockTime(client.created_at)}</time> · last sign-in ${timeAgo(client.last_login_at)}</p>
+    </div>
+    <div class="split">
+      <section class="card">
+        <h2 class="card-title">Details</h2>
+        ${error ? html`<div class="flash flash-error" role="alert">${error}</div>` : ''}
+        <form method="post" action="/admin/clients/${client.id}" class="stack">
+          <input type="hidden" name="_csrf" value="${req.csrf}">
+          <label class="field"><span>Name</span><input name="name" value="${form.name || ''}" maxlength="80" required></label>
+          <label class="field"><span>Email <em>also their sign-in</em></span><input type="email" name="email" value="${form.email || ''}" required></label>
+          <label class="field"><span>Company <em>optional</em></span><input name="company" value="${form.company || ''}" maxlength="80"></label>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </form>
+        <p class="muted small">Changing the email changes how they sign in. Tell them. Their password stays the same.</p>
+      </section>
+      <section class="card card-flush">
+        ${videos.length ? html`<ul class="queue">${videos.map((v) => html`
+          <li><a class="qrow qrow-compact" href="/admin/videos/${v.id}">
+            <div class="q-main"><div class="q-title"><strong>${v.title}</strong></div>
+              <div class="muted small">Sent <time data-ts="${v.submitted_at}">${clockTime(v.submitted_at)}</time></div></div>
+            <span class="q-status">${statusBadgeAdmin(v.status)}</span>
+          </a></li>`)}</ul>`
+          : html`<div class="empty-inline"><h3>No videos yet</h3><p class="muted">Their videos will be listed here.</p></div>`}
+      </section>
+    </div>`,
+  });
 }

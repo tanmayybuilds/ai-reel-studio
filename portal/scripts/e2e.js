@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 
 const portalDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4499;
@@ -18,18 +19,29 @@ const studio = path.join(tmp, 'studio');
 for (const d of ['Raw', 'Exports', 'Approved Videos']) fs.mkdirSync(path.join(studio, d), { recursive: true });
 const ADMIN = { email: 'admin@e2e.test', password: crypto.randomBytes(12).toString('hex') };
 
+// Fail fast if something (e.g. a test that was killed) still holds the port.
+try {
+  await fetch(`${BASE}/healthz`);
+  console.error(`Port ${PORT} is already in use (a leftover test server?). Stop it and run again.`);
+  process.exit(1);
+} catch { /* free: good */ }
+
 const server = spawn(process.execPath, ['server.js'], {
   cwd: portalDir,
   env: {
     PATH: process.env.PATH, HOME: process.env.HOME, PORT: String(PORT), HOST: '127.0.0.1', SITE_URL: BASE,
     PORTAL_DATA_DIR: path.join(tmp, 'data'), STUDIO_ROOT: studio, PORTAL_NAME: 'E2E Studio',
     ADMIN_EMAIL: ADMIN.email, ADMIN_PASSWORD: ADMIN.password, ALERT_EMAIL: 'alerts@e2e.test',
+    DRIVE_LINK_CHECK: 'off', // the test never calls Google
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';
 server.stdout.on('data', (d) => { serverLog += d; });
 server.stderr.on('data', (d) => { serverLog += d; });
+// Never leave the test server running, even if the test is interrupted.
+process.on('exit', () => server.kill());
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130));
 
 // ---------- tiny browser ----------
 
@@ -59,6 +71,21 @@ class Browser {
   }
   raw(url, buf) {
     return this.req('POST', url, { body: buf, headers: { 'content-type': 'application/octet-stream', 'x-csrf-token': this.csrf } });
+  }
+  /** The studio's chunked upload: start, send chunks, finish. Returns the finish response. */
+  async adminUpload(purpose, videoId, name, buf, extra = {}) {
+    const start = await this.api('POST', '/admin/api/uploads', { purpose, videoId, name, size: buf.length });
+    assert.ok([200, 201].includes(start.res.status), `start ${purpose}: ${JSON.stringify(start.data)}`);
+    let offset = start.data.received;
+    while (offset < buf.length) {
+      const chunk = buf.subarray(offset, offset + start.data.chunkSize);
+      const res = await this.req('PUT', `/admin/api/uploads/${start.data.id}?offset=${offset}`, {
+        body: chunk, headers: { 'content-type': 'application/octet-stream', 'x-csrf-token': this.csrf, 'x-chunk-sha256': sha(chunk) },
+      });
+      assert.equal(res.status, 200);
+      offset = (await res.json()).received;
+    }
+    return this.api('POST', `/admin/api/uploads/${start.data.id}/finish`, extra);
   }
   async signIn(email, password) {
     await this.get('/login');
@@ -94,9 +121,6 @@ async function run() {
   const other = new Browser();
   let clientPassword = '';
   let videoId = 0;
-  const raw = crypto.randomBytes(40 * 1024 * 1024 + 777); // 2 chunks
-  const v1 = crypto.randomBytes(300_000);
-  const v2 = crypto.randomBytes(500_000);
 
   console.log('\nAccounts');
   await step('admin signs in and lands on the queue', async () => {
@@ -124,43 +148,36 @@ async function run() {
     }
   });
 
-  console.log('\nNew video');
-  await step('client uploads 40 MB of raw footage in verified chunks', async () => {
+  console.log('\nNew video (Google Drive only)');
+  const FOOTAGE = 'https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWx?usp=sharing';
+  const good = { title: 'Launch reel', ref_mode: 'reference', reference_url: 'https://www.instagram.com/reel/abc/', drive_url: FOOTAGE, shared: 'yes', notes: 'Keep it short.', notify_email: 'priya@e2e.test' };
+  const refused = async (fields, pattern) => {
     await client.get('/videos/new');
-    const start = await client.api('POST', '/api/uploads', { kind: 'raw', name: 'Take 1.mov', size: raw.length, title: 'Launch reel' });
-    assert.equal(start.res.status, 201);
-    let offset = 0;
-    while (offset < raw.length) {
-      const chunk = raw.subarray(offset, offset + start.data.chunkSize);
-      const res = await client.req('PUT', `/api/uploads/${start.data.fileId}?offset=${offset}`, {
-        body: chunk, headers: { 'content-type': 'application/octet-stream', 'x-csrf-token': client.csrf, 'x-chunk-sha256': sha(chunk) },
-      });
-      assert.equal(res.status, 200);
-      offset = (await res.json()).received;
-    }
-    const done = await client.api('POST', `/api/uploads/${start.data.fileId}/complete`);
-    assert.equal(done.data.sha256, sha(raw));
-    videoId = start.data.videoId;
+    const res = await client.post('/videos/new', fields);
+    assert.equal(res.status, 400, `should refuse: ${JSON.stringify(fields)}`);
+    assert.match(await res.text(), pattern);
+  };
+  await step('the form refuses a missing "shared" tick, look, Drive link or email', async () => {
+    await refused({ ...good, shared: '' }, /Anyone with the link/);
+    await refused({ ...good, reference_url: '' }, /reference reel link, or switch/);
+    await refused({ ...good, ref_mode: 'style', style_id: '' }, /Pick one of our styles/);
+    await refused({ ...good, drive_url: 'https://www.dropbox.com/s/abc/video.mov' }, /Google Drive link/);
+    await refused({ ...good, notify_email: 'nope' }, /email/);
+    await refused({ ...good, title: '' }, /title/);
   });
-  await step('a damaged chunk is refused', async () => {
-    const start = await client.api('POST', '/api/uploads', { kind: 'voiceover', name: 'vo.wav', size: 1000, videoId });
-    const res = await client.req('PUT', `/api/uploads/${start.data.fileId}?offset=0`, {
-      body: Buffer.alloc(1000, 1), headers: { 'content-type': 'application/octet-stream', 'x-csrf-token': client.csrf, 'x-chunk-sha256': '0'.repeat(64) },
-    });
-    assert.equal(res.status, 422);
-    assert.equal((await client.api('DELETE', `/api/uploads/${start.data.fileId}`)).res.status, 200);
+  await step('client uploads are gone (the portal stores no footage)', async () => {
+    await client.get('/dashboard');
+    assert.equal((await client.api('POST', '/api/uploads', { kind: 'raw', name: 'a.mov', size: 10 })).res.status, 404);
   });
-  await step('client sends it; footage lands in Raw/ byte-for-byte with a brief', async () => {
+  await step('client sends it with a Drive folder link; a brief lands in Raw/', async () => {
     await client.get('/videos/new');
-    const res = await client.post('/videos/new', {
-      video_id: String(videoId), title: 'Launch reel', ref_mode: 'reference', reference_url: 'https://www.instagram.com/reel/abc/',
-      source: 'upload', notes: 'Keep it short.', notify_email: 'priya@e2e.test',
-    });
+    const res = await client.post('/videos/new', good);
     assert.equal(res.status, 303);
+    videoId = Number(res.headers.get('location').match(/\/videos\/(\d+)/)[1]);
     const dir = fs.readdirSync(path.join(studio, 'Raw', 'Priya Sharma'))[0];
-    const folder = path.join(studio, 'Raw', 'Priya Sharma', dir);
-    assert.equal(sha(fs.readFileSync(path.join(folder, 'Take 1.mov'))), sha(raw));
-    assert.match(fs.readFileSync(path.join(folder, 'brief.md'), 'utf8'), /instagram\.com\/reel\/abc/);
+    const brief = fs.readFileSync(path.join(studio, 'Raw', 'Priya Sharma', dir, 'brief.md'), 'utf8');
+    assert.match(brief, /drive\.google\.com\/drive\/folders\/1AbCdEfGhIjKlMnOpQrStUvWx/);
+    assert.match(brief, /instagram\.com\/reel\/abc/);
   });
   await step('client sees the live editing screen with a countdown', async () => {
     const { text } = await client.get(`/videos/${videoId}`);
@@ -200,48 +217,69 @@ async function run() {
     assert.match(text, /Launch reel/);
   });
 
-  console.log('\nReview and delivery');
-  await step('admin sends v1; client gets the review screen', async () => {
+  console.log('\nReview and delivery (Drive links)');
+  const V1 = 'https://drive.google.com/file/d/1V1V1V1V1V1V1V1V1V1V1V1V1/view?usp=sharing';
+  const V2 = 'https://drive.google.com/open?id=1V2V2V2V2V2V2V2V2V2V2V2V2';
+  const FINAL = 'https://drive.google.com/file/d/1FINALFINALFINALFINAL0000/view';
+  await step('admin sends v1 as a Drive link; client gets a review screen that plays it', async () => {
     await admin.get(`/admin/videos/${videoId}`);
-    assert.equal((await admin.raw(`/admin/videos/${videoId}/versions?file=cut.mp4&note=First%20cut`, v1)).status, 200);
+    const bad = await admin.post(`/admin/videos/${videoId}/versions`, { link: 'https://youtu.be/xyz', note: 'x' });
+    assert.equal(bad.status, 303);
+    assert.match((await admin.get(`/admin/videos/${videoId}`)).text, /Paste a Google Drive link/);
+    await admin.post(`/admin/videos/${videoId}/versions`, { link: V1, note: 'First cut' });
     const { text } = await client.get(`/videos/${videoId}`);
     assert.match(text, /Your video is ready/);
     assert.match(text, /First cut/);
+    assert.match(text, /<iframe src="https:\/\/drive\.google\.com\/file\/d\/1V1V1V1V1V1V1V1V1V1V1V1V1\/preview"/);
+  });
+  await step('admin gets Gmail / WhatsApp / copy buttons with the message written', async () => {
+    const { text } = await admin.get(`/admin/videos/${videoId}`);
+    assert.match(text, /https:\/\/mail\.google\.com\/mail\/\?view=cm&amp;fs=1&amp;to=priya%40e2e\.test/);
+    assert.match(text, /https:\/\/wa\.me\/\?text=/);
   });
   await step('client asks for changes; admin sees the request', async () => {
     await client.get(`/videos/${videoId}`);
-    await client.post(`/videos/${videoId}/changes`, { body: '[0:04] Bigger logo' });
+    await client.post(`/videos/${videoId}/changes`, { body: '[0:04] Bigger logo', version: '1' });
     const { text } = await admin.get(`/admin/videos/${videoId}`);
     assert.match(text, /Changes requested on v1/);
     assert.match(text, /\[0:04\] Bigger logo/);
   });
-  await step('admin sends v2 from Exports/ (as the editing skills would)', async () => {
-    const dir = path.join(studio, 'Exports', 'Priya Sharma', 'render');
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'launch-v2.mp4'), v2);
+  await step('admin sends v2 (an open?id= link is tidied up)', async () => {
     await admin.get(`/admin/videos/${videoId}`);
-    await admin.post(`/admin/videos/${videoId}/versions/from-exports`, { rel: path.join('Exports', 'Priya Sharma', 'render', 'launch-v2.mp4'), note: 'Logo bigger' });
+    await admin.post(`/admin/videos/${videoId}/versions`, { link: V2, note: 'Logo bigger' });
     const { text } = await client.get(`/videos/${videoId}`);
     assert.match(text, /Version 2 is ready/);
+    assert.match(text, /file\/d\/1V2V2V2V2V2V2V2V2V2V2V2V2\/preview/);
   });
-  await step('client approves; status becomes preparing final', async () => {
+  await step('approving a version the client never saw is refused', async () => {
     await client.get(`/videos/${videoId}`);
-    await client.post(`/videos/${videoId}/approve`);
+    await client.post(`/videos/${videoId}/approve`, { version: '1' });
+    const { text } = await client.get(`/videos/${videoId}`);
+    assert.match(text, /A newer version \(v2\) just arrived/);
+  });
+  await step('client approves v2; status becomes preparing final', async () => {
+    await client.get(`/videos/${videoId}`);
+    await client.post(`/videos/${videoId}/approve`, { version: '2' });
     const { text } = await client.get(`/videos/${videoId}`);
     assert.match(text, /Preparing your final file/);
   });
-  await step('admin delivers the approved version with a Drive link', async () => {
+  await step('admin delivers a final Drive link (two clicks at once deliver only once)', async () => {
     await admin.get(`/admin/videos/${videoId}`);
-    await admin.post(`/admin/videos/${videoId}/deliver`, { source: 'approved', drive_url: 'https://drive.google.com/file/d/x/view' });
+    const fields = { source: 'new', drive_url: FINAL };
+    await Promise.all([admin.post(`/admin/videos/${videoId}/deliver`, fields), admin.post(`/admin/videos/${videoId}/deliver`, fields)]);
+    const db = new DatabaseSync(path.join(tmp, 'data', 'portal.db'));
+    const row = db.prepare('SELECT status, final_drive_url FROM videos WHERE id = ?').get(videoId);
+    const delivered = db.prepare("SELECT COUNT(*) AS n FROM messages WHERE video_id = ? AND body = 'Final video delivered.'").get(videoId).n;
+    db.close();
+    assert.equal(row.status, 'delivered');
+    assert.equal(row.final_drive_url, FINAL);
+    assert.equal(delivered, 1);
+  });
+  await step('client gets Download and Open in Google Drive for the final', async () => {
     const { text } = await client.get(`/videos/${videoId}`);
     assert.match(text, /Your final video is ready/);
-    assert.match(text, /drive\.google\.com\/file\/d\/x/);
-  });
-  await step('client downloads the final, identical to the approved v2', async () => {
-    const res = await client.req('GET', `/videos/${videoId}/download`);
-    assert.equal(res.status, 200);
-    assert.equal(sha(Buffer.from(await res.arrayBuffer())), sha(v2));
-    assert.equal((await other.req('GET', `/videos/${videoId}/download`)).status, 404);
+    assert.match(text, /href="https:\/\/drive\.google\.com\/uc\?export=download&amp;id=1FINALFINALFINALFINAL0000"/);
+    assert.match(text, /Open in Google Drive/);
   });
 
   console.log('\nEmails');
@@ -258,6 +296,73 @@ async function run() {
       ['priya@e2e.test', /final video .Launch reel. is ready to download/],
     ];
     for (const [to, re] of want) assert.ok(rows.some((r) => r.startsWith(to) && re.test(r)), `missing email to ${to} matching ${re}\n${rows.join('\n')}`);
+  });
+
+  console.log('\nAccount settings');
+  await step('client changes their own password; the old one stops working', async () => {
+    await client.get('/account');
+    const bad = await client.post('/account/password', { current: 'wrong', password: 'new-password-123', confirm: 'new-password-123' });
+    assert.equal(bad.status, 400);
+    await client.get('/account');
+    const ok = await client.post('/account/password', { current: clientPassword, password: 'new-password-123', confirm: 'new-password-123' });
+    assert.equal(ok.status, 303);
+    const b = new Browser();
+    await b.get('/login');
+    assert.equal((await b.post('/login', { email: 'priya@e2e.test', password: clientPassword })).status, 401);
+    assert.match(await new Browser().signIn('priya@e2e.test', 'new-password-123'), /\/dashboard$/);
+  });
+  await step('admin edits a client; they sign in with the new email', async () => {
+    const { text } = await admin.get('/admin/clients');
+    const id = [...text.matchAll(/href="\/admin\/clients\/(\d+)">Edit/g)].map((m) => m[1]).at(-1);
+    await admin.get(`/admin/clients/${id}`);
+    assert.equal((await admin.post(`/admin/clients/${id}`, { name: 'Priya S.', email: 'priya.new@e2e.test', company: '' })).status, 303);
+    assert.match(await new Browser().signIn('priya.new@e2e.test', 'new-password-123'), /\/dashboard$/);
+  });
+  await step('a style reel uploaded in chunks becomes a style', async () => {
+    await admin.get('/admin/styles');
+    const done = await admin.adminUpload('style', null, 'sample.mp4', crypto.randomBytes(200_000), { name: 'Test style', description: 'For the test' });
+    assert.equal(done.res.status, 200, JSON.stringify(done.data));
+    assert.match((await admin.get('/admin/styles')).text, /Test style/);
+  });
+
+  console.log('\nProduction');
+  await step('health check, robots.txt and no-index headers', async () => {
+    const h = await fetch(`${BASE}/healthz`);
+    assert.deepEqual(await h.json(), { ok: true });
+    assert.match(await (await fetch(`${BASE}/robots.txt`)).text(), /Disallow: \//);
+    assert.match((await fetch(`${BASE}/login`)).headers.get('x-robots-tag'), /noindex/);
+  });
+  await step('installable app: manifest, icons, service worker, offline page', async () => {
+    const m = await (await fetch(`${BASE}/manifest.webmanifest`)).json();
+    assert.equal(m.display, 'standalone');
+    assert.ok(m.icons.some((i) => i.sizes === '512x512' && i.purpose === 'maskable'));
+    for (const u of ['/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/offline.html']) {
+      assert.equal((await fetch(BASE + u)).status, 200, u);
+    }
+    const sw = await fetch(`${BASE}/sw.js`);
+    assert.equal(sw.headers.get('cache-control'), 'no-cache');
+  });
+  await step('stray requests don\u2019t create sessions', async () => {
+    const db = new DatabaseSync(path.join(tmp, 'data', 'portal.db'));
+    const before = db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n;
+    for (const u of ['/', '/nope', '/favicon.ico', '/dashboard']) await fetch(BASE + u, { redirect: 'manual' });
+    const after = db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n;
+    db.close();
+    assert.equal(after, before);
+  });
+  await step('refuses to start in production with a weak password or no HTTPS', async () => {
+    const child = spawn(process.execPath, ['server.js'], {
+      cwd: portalDir,
+      env: { PATH: process.env.PATH, NODE_ENV: 'production', PORT: '4498', PORTAL_DATA_DIR: path.join(tmp, 'prod-data'), STUDIO_ROOT: studio,
+        ADMIN_EMAIL: 'a@e2e.test', ADMIN_PASSWORD: 'change-me', SITE_URL: 'http://localhost:4498' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let out = '';
+    child.stderr.on('data', (d) => { out += d; });
+    const code = await new Promise((r) => child.on('exit', r));
+    assert.equal(code, 1);
+    assert.match(out, /ADMIN_PASSWORD/);
+    assert.match(out, /SITE_URL must start with https/);
   });
 
   console.log('\nAccess');

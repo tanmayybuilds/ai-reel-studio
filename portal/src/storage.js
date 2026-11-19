@@ -10,7 +10,8 @@ export const stagingRoot = path.join(config.dataDir, 'uploads');
 export const rawRoot = path.join(config.studioRoot, 'Raw');
 export const exportsRoot = path.join(config.studioRoot, 'Exports');
 
-export const CHUNK_SIZE = 32 * 1024 * 1024; // under Cloudflare's 100 MB request cap when we go live
+// Small enough to retry cheaply on a phone connection and to pass any host's request-size cap.
+export const CHUNK_SIZE = Math.min(64, Math.max(4, Number(process.env.UPLOAD_CHUNK_MB || 16))) * 1024 * 1024;
 export const MAX_FILE_SIZE = 50 * 1024 ** 3;
 export const MAX_FILES_PER_VIDEO = 60;
 const FREE_SPACE_MARGIN = 2 * 1024 ** 3;

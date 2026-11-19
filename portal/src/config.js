@@ -6,14 +6,29 @@ const port = Number(process.env.PORT || 4400);
 const siteUrl = (process.env.SITE_URL || `http://localhost:${port}`).replace(/\/+$/, '');
 const accent = /^#[0-9a-f]{6}$/i.test(process.env.PORTAL_ACCENT || '') ? process.env.PORTAL_ACCENT : '#2dd4bf';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+// How many proxies sit in front of the portal (sets Express "trust proxy"). On a host such as Railway,
+// Render or Fly use 1; behind Cloudflare Tunnel on this Mac the default "loopback" is right.
+function trustProxy(v) {
+  if (v === undefined || v === '') return 'loopback';
+  if (/^\d+$/.test(v)) return Number(v);
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  return v;
+}
+
 export const config = {
   portalDir,
+  isProduction,
+  trustProxy: trustProxy(process.env.TRUST_PROXY),
   // Uploads land in <studioRoot>/Raw/<Client>/<Video>/ so the studio skills can pick them up.
   studioRoot: path.resolve(process.env.STUDIO_ROOT || path.join(portalDir, '..')),
   // PORTAL_DATA_DIR lets the end-to-end test run against a throwaway database.
   dataDir: process.env.PORTAL_DATA_DIR ? path.resolve(process.env.PORTAL_DATA_DIR) : path.join(portalDir, 'data'),
   port,
-  host: process.env.HOST || '127.0.0.1',
+  // Containers must listen on all interfaces; on this Mac stay private by default.
+  host: process.env.HOST || (isProduction ? '0.0.0.0' : '127.0.0.1'),
   siteUrl,
   secureCookies: siteUrl.startsWith('https://'),
   portalName: process.env.PORTAL_NAME || 'AI Reel Studio',
@@ -39,3 +54,19 @@ export const config = {
   },
   sessionDays: 30,
 };
+
+const PLACEHOLDER_PASSWORDS = /^(change-me|changeme|password|admin)/i;
+
+/**
+ * Settings that would make a public portal unsafe. In production (NODE_ENV=production) the server
+ * refuses to start while any of these are true; locally they're printed as warnings.
+ */
+export function configProblems() {
+  const problems = [];
+  if (!config.admin.email) problems.push('ADMIN_EMAIL is not set.');
+  if (config.admin.password.length < 12) problems.push('ADMIN_PASSWORD must be at least 12 characters.');
+  if (PLACEHOLDER_PASSWORDS.test(config.admin.password)) problems.push('ADMIN_PASSWORD is still a placeholder. Choose a real password.');
+  if (config.isProduction && !config.secureCookies) problems.push('SITE_URL must start with https:// in production.');
+  if (config.isProduction && /localhost|127\.0\.0\.1/.test(config.siteUrl)) problems.push('SITE_URL must be the public address, e.g. https://portal.yourdomain.com');
+  return problems;
+}

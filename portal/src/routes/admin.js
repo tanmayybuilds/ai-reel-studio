@@ -5,15 +5,12 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { execFile } from 'node:child_process';
 import { config } from '../config.js';
-import { clientsPage, queuePage, queueList, workspacePage, QUEUE_FILTERS } from '../views/admin.js';
+import { clientsPage, clientEditPage, queuePage, queueList, workspacePage, QUEUE_FILTERS } from '../views/admin.js';
 import { filesOf } from '../videos.js';
 import { listMessages, markRead, threadHandlers, addSystemMessage } from '../thread.js';
 import { chatPanel } from '../views/chat.js';
-import { isHttpUrl } from '../storage.js';
-import {
-  listVersions, finalFile, lastChangeRequest, recentExports, receiveBody, addVersion, deliver, exportsDirFor,
-  editFileName, nextVersionNumber, VIDEO_EXTS,
-} from '../review.js';
+import { listVersions, lastChangeRequest, addVersion, deliver } from '../review.js';
+import { parseDriveUrl, checkDriveAccess, DRIVE_PROBLEM } from '../drive.js';
 
 export const adminRoutes = Router();
 
@@ -68,10 +65,7 @@ adminRoutes.get('/admin/videos/:id', (req, res, next) => {
   });
   res.send(workspacePage(req, {
     video, client, files: filesOf(video.id), chat,
-    versions: listVersions(video.id), final: finalFile(video.id), changeRequest: lastChangeRequest(video.id),
-    exportsList: ['editing', 'changes', 'review', 'exporting'].includes(video.status) ? recentExports() : [],
-    folderAbs: video.folder ? path.join(config.studioRoot, video.folder) : '',
-    canReveal: process.platform === 'darwin' && config.host === '127.0.0.1',
+    versions: listVersions(video.id), changeRequest: lastChangeRequest(video.id),
   }));
 });
 
@@ -111,35 +105,13 @@ adminRoutes.post('/admin/videos/:id/reveal', (req, res) => {
 
 // ---------- sending edits and the final ----------
 
-const okExt = (name) => VIDEO_EXTS.includes(String(name).split('.').pop().toLowerCase());
-const fail = (res, err) => res.status(err.status || 400).json({ error: err.status ? err.message : 'The upload didn\u2019t finish. Try again.' });
-
-// Upload an edited cut from the computer (raw body; details in the query string).
+// Send an edited version: a shared Google Drive link plus an optional note.
 adminRoutes.post('/admin/videos/:id/versions', async (req, res) => {
   const video = adminVideo(req);
-  if (!video) return res.status(404).json({ error: 'Video not found.' });
-  const file = String(req.query.file || '');
-  if (!okExt(file)) return res.status(415).json({ error: 'Use an MP4, MOV, M4V or WEBM file.' });
-  try {
-    if (!['editing', 'changes', 'review'].includes(video.status)) throw Object.assign(new Error('This video isn\u2019t waiting for an edit.'), { status: 409 });
-    const dest = await receiveBody(req, exportsDirFor(video), editFileName(video, `v${nextVersionNumber(video.id)}`, file));
-    const v = addVersion(video, dest, String(req.query.note || ''));
-    flash(req, 'success', `Version ${v.number} sent. The client can review it now.`);
-    res.json({ redirect: `/admin/videos/${video.id}` });
-  } catch (err) {
-    console.warn('version upload failed:', err.message);
-    fail(res, err);
-  }
-});
-
-// Attach a render that's already in Exports/ (e.g. from the editing skills). The file stays where it is.
-adminRoutes.post('/admin/videos/:id/versions/from-exports', (req, res) => {
-  const video = adminVideo(req);
   if (!video) return res.redirect(303, '/admin/queue');
-  const pick = recentExports(200).find((e) => e.rel === req.body.rel);
   try {
-    if (!pick) throw Object.assign(new Error('That file isn\u2019t in Exports/ any more.'), { status: 400 });
-    const v = addVersion(video, pick.path, String(req.body.note || ''));
+    const link = await sharedDriveLink(req.body.link);
+    const v = addVersion(video, link, String(req.body.note || ''));
     flash(req, 'success', `Version ${v.number} sent. The client can review it now.`);
   } catch (err) {
     flash(req, 'error', err.message);
@@ -147,23 +119,20 @@ adminRoutes.post('/admin/videos/:id/versions/from-exports', (req, res) => {
   res.redirect(303, `/admin/videos/${video.id}`);
 });
 
-// Deliver with the approved version, an Exports render, or just a Drive link.
-adminRoutes.post('/admin/videos/:id/deliver', (req, res) => {
+// Deliver the final: the approved version's Drive link, or a different Drive link (e.g. a full-quality export).
+adminRoutes.post('/admin/videos/:id/deliver', async (req, res) => {
   const video = adminVideo(req);
   if (!video) return res.redirect(303, '/admin/queue');
-  const driveUrl = String(req.body.drive_url || '').trim();
   try {
-    if (driveUrl && !isHttpUrl(driveUrl)) throw new Error('The Drive link should start with https://');
-    let filePath = null;
-    const source = String(req.body.source || '');
-    if (source === 'approved') {
+    let link;
+    if (req.body.source === 'approved') {
       const v = listVersions(video.id).find((x) => x.number === video.approved_version) || listVersions(video.id).at(-1);
-      filePath = v?.stored_path || null;
-    } else if (source.startsWith('exports:')) {
-      filePath = recentExports(200).find((e) => e.rel === source.slice(8))?.path || null;
-      if (!filePath) throw new Error('That file isn\u2019t in Exports/ any more.');
+      if (!v?.link) throw new Error('The approved version has no Drive link. Paste the final\u2019s link instead.');
+      link = v.link;
+    } else {
+      link = await sharedDriveLink(req.body.drive_url);
     }
-    deliver(video, { filePath, driveUrl });
+    deliver(video, link);
     flash(req, 'success', 'Delivered. The client can download the final now.');
   } catch (err) {
     flash(req, 'error', err.message);
@@ -171,25 +140,14 @@ adminRoutes.post('/admin/videos/:id/deliver', (req, res) => {
   res.redirect(303, `/admin/videos/${video.id}`);
 });
 
-// Deliver by uploading a separate final file.
-adminRoutes.post('/admin/videos/:id/deliver/upload', async (req, res) => {
-  const video = adminVideo(req);
-  if (!video) return res.status(404).json({ error: 'Video not found.' });
-  const file = String(req.query.file || '');
-  const driveUrl = String(req.query.drive_url || '').trim();
-  if (!okExt(file)) return res.status(415).json({ error: 'Use an MP4, MOV, M4V or WEBM file.' });
-  if (driveUrl && !isHttpUrl(driveUrl)) return res.status(400).json({ error: 'The Drive link should start with https://' });
-  try {
-    if (video.status !== 'exporting') throw Object.assign(new Error('Deliver after the client approves.'), { status: 409 });
-    const dest = await receiveBody(req, exportsDirFor(video), editFileName(video, 'final', file));
-    deliver(video, { filePath: dest, driveUrl });
-    flash(req, 'success', 'Delivered. The client can download the final now.');
-    res.json({ redirect: `/admin/videos/${video.id}` });
-  } catch (err) {
-    console.warn('final upload failed:', err.message);
-    fail(res, err);
-  }
-});
+/** A tidy Drive link that the client will actually be able to open, or a clear error. */
+async function sharedDriveLink(input) {
+  const d = parseDriveUrl(input);
+  if (!d.ok) throw new Error('Paste a Google Drive link (drive.google.com/\u2026).');
+  const access = await checkDriveAccess(d.url);
+  if (DRIVE_PROBLEM[access]) throw new Error(DRIVE_PROBLEM[access]);
+  return d.url;
+}
 
 adminRoutes.get('/admin/files/:id/stream', (req, res, next) => {
   const file = db.prepare('SELECT * FROM files WHERE id = ? AND complete = 1').get(Number(req.params.id));
@@ -235,6 +193,31 @@ adminRoutes.post('/admin/clients', async (req, res) => {
     .run(form.name, form.email, form.company || null, await hashPassword(password), now());
 
   flash(req, 'credentials', { name: form.name, email: form.email, password });
+  res.redirect(303, '/admin/clients');
+});
+
+adminRoutes.get('/admin/clients/:id', (req, res, next) => {
+  const client = getClient(req.params.id);
+  if (!client) return next();
+  const videos = db.prepare("SELECT * FROM videos WHERE client_id = ? AND status != 'draft' ORDER BY created_at DESC").all(client.id);
+  res.send(clientEditPage(req, { client, videos, form: client }));
+});
+
+adminRoutes.post('/admin/clients/:id', (req, res, next) => {
+  const client = getClient(req.params.id);
+  if (!client) return next();
+  const form = {
+    name: String(req.body.name || '').trim().slice(0, 80),
+    email: normEmail(req.body.email),
+    company: String(req.body.company || '').trim().slice(0, 80),
+  };
+  const videos = db.prepare("SELECT * FROM videos WHERE client_id = ? AND status != 'draft' ORDER BY created_at DESC").all(client.id);
+  const fail = (error) => res.status(400).send(clientEditPage(req, { client, videos, form, error }));
+  if (!form.name) return fail('Add the client\u2019s name.');
+  if (!isEmail(form.email)) return fail('That email address doesn\u2019t look right.');
+  if (db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(form.email, client.id)) return fail(`${form.email} already has a login.`);
+  db.prepare('UPDATE users SET name = ?, email = ?, company = ? WHERE id = ?').run(form.name, form.email, form.company || null, client.id);
+  flash(req, 'success', form.email !== client.email ? `Saved. ${form.name} now signs in with ${form.email}.` : 'Saved.');
   res.redirect(303, '/admin/clients');
 });
 

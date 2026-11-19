@@ -1,20 +1,14 @@
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import crypto from 'node:crypto';
-import { pipeline } from 'node:stream/promises';
-import { Transform } from 'node:stream';
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAdmin, flash } from '../auth.js';
 import {
-  listStyles, getStyle, createStyle, deleteStyle, activeCount, approvedReels, stylesRoot,
+  listStyles, getStyle, createStyle, deleteStyle, activeCount, approvedReels,
   stylePreviewPath, stylePosterPath, MAX_STYLES,
 } from '../styles.js';
 import { stylesPage } from '../views/styles.js';
 
 export const styleRoutes = Router();
-const MAX_UPLOAD = 2 * 1024 ** 3;
 
 // ---------- media (any signed-in user; clients only see active styles) ----------
 
@@ -44,35 +38,6 @@ styleRoutes.use('/admin/styles', requireAdmin);
 
 styleRoutes.get('/admin/styles', (req, res) => {
   res.send(stylesPage(req, { styles: listStyles(), approved: approvedReels(), active: activeCount() }));
-});
-
-// Upload a reel from the computer: raw bytes in the body, details in the query string.
-styleRoutes.post('/admin/styles/upload', async (req, res) => {
-  const name = String(req.query.name || '').trim();
-  const fileName = String(req.query.file || 'reel.mp4');
-  const length = Number(req.get('content-length'));
-  if (!name) return res.status(400).json({ error: 'Give the style a name.' });
-  if (!/\.(mp4|mov|m4v|webm)$/i.test(fileName)) return res.status(415).json({ error: 'Use an MP4, MOV, M4V or WEBM file.' });
-  if (!length || length > MAX_UPLOAD) return res.status(413).json({ error: 'Sample reels can be up to 2 GB.' });
-
-  await fsp.mkdir(stylesRoot, { recursive: true });
-  const tmp = path.join(stylesRoot, `upload-${crypto.randomUUID()}${path.extname(fileName).toLowerCase()}`);
-  let seen = 0;
-  const cap = new Transform({
-    transform(chunk, _e, cb) { seen += chunk.length; cb(seen > MAX_UPLOAD ? new Error('too big') : null, chunk); },
-  });
-  try {
-    await pipeline(req, cap, fs.createWriteStream(tmp));
-    if (seen !== length) throw new Error('Upload incomplete');
-    const style = await createStyle({ file: tmp, name, description: String(req.query.description || ''), sourceName: fileName });
-    flash(req, 'success', style.active ? `“${style.name}” is live for clients.` : `“${style.name}” was added but is hidden: you already show ${MAX_STYLES} styles.`);
-    res.json({ ok: true, id: style.id });
-  } catch (err) {
-    if (!res.headersSent) res.status(400).json({ error: 'The upload didn’t finish. Try again.' });
-    console.warn('style upload failed:', err.message);
-  } finally {
-    fsp.rm(tmp, { force: true }).catch(() => {});
-  }
 });
 
 // Use one of the studio's approved reels (from Approved Videos/) as a style.

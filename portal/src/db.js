@@ -75,10 +75,12 @@ db.exec(`
     id         INTEGER PRIMARY KEY,
     video_id   INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
     number     INTEGER NOT NULL,
-    file_id    INTEGER NOT NULL REFERENCES files(id),
+    file_id    INTEGER REFERENCES files(id),  -- an uploaded file (older videos)…
+    link       TEXT,                          -- …or a shared Google Drive link
     note       TEXT,
     created_at INTEGER NOT NULL,
-    UNIQUE (video_id, number)
+    UNIQUE (video_id, number),
+    CHECK (file_id IS NOT NULL OR link IS NOT NULL)
   );
 
   -- Chat thread per video, including change requests and system notes.
@@ -120,6 +122,20 @@ db.exec(`
   );
 `);
 
+// The studio's own uploads (edits, finals, style reels) in progress, sent in chunks like the clients'.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_uploads (
+    id         TEXT PRIMARY KEY,
+    purpose    TEXT NOT NULL CHECK (purpose IN ('version','final','style')),
+    video_id   INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    size       INTEGER NOT NULL,
+    received   INTEGER NOT NULL DEFAULT 0,
+    path       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+`);
+
 // Small additive migrations for databases created by earlier phases.
 function addColumn(table, column, ddl) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
@@ -128,6 +144,33 @@ function addColumn(table, column, ddl) {
 addColumn('videos', 'style_id', 'style_id INTEGER REFERENCES styles(id) ON DELETE SET NULL');
 addColumn('videos', 'style_name', 'style_name TEXT'); // snapshot, survives the style being deleted
 addColumn('videos', 'approved_version', 'approved_version INTEGER'); // version number the client approved for export
+
+// Versions can be Drive links: databases from before that need file_id made optional (SQLite has to
+// rebuild the table for that). Runs once; the data is copied over unchanged.
+if (!db.prepare('PRAGMA table_info(versions)').all().some((c) => c.name === 'link')) {
+  db.exec(`
+    PRAGMA foreign_keys = OFF;
+    BEGIN;
+    CREATE TABLE versions_new (
+      id INTEGER PRIMARY KEY,
+      video_id INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+      number INTEGER NOT NULL,
+      file_id INTEGER REFERENCES files(id),
+      link TEXT,
+      note TEXT,
+      created_at INTEGER NOT NULL,
+      UNIQUE (video_id, number),
+      CHECK (file_id IS NOT NULL OR link IS NOT NULL)
+    );
+    INSERT INTO versions_new (id, video_id, number, file_id, note, created_at)
+      SELECT id, video_id, number, file_id, note, created_at FROM versions;
+    DROP TABLE versions;
+    ALTER TABLE versions_new RENAME TO versions;
+    COMMIT;
+    PRAGMA foreign_keys = ON;
+  `);
+  console.log('Database updated: versions can now be Google Drive links.');
+}
 
 export const now = () => Date.now();
 

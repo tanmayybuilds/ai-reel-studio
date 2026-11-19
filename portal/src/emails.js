@@ -61,7 +61,7 @@ export function versionReadyEmail({ video, client, version }) {
       p(`Hi ${esc(first(client.name))},`) +
       p(`${version.number === 1 ? 'Your edit of' : 'The updated edit of'} <strong>${esc(video.title)}</strong> is ready. Watch it in your portal, then ask for changes or approve it to get the final file.`) +
       (version.note ? quote(version.note) : '') +
-      `<div style="margin:22px 0 4px">${button(url, 'Watch and review')}</div>` +
+      `<div style="margin:22px 0 4px">${button(url, 'Watch and review')}${version.link ? button(version.link, 'Open in Google Drive', false) : ''}</div>` +
       small(`Or open your dashboard and click the video. Button not working? Paste this into your browser:<br><a href="${esc(url)}" style="color:#6b7280">${esc(url)}</a>`),
   });
   const text = `Hi ${first(client.name)},\n\n${version.number === 1 ? 'Your edit of' : 'The updated edit of'} "${video.title}" is ready (v${version.number}).\n` +
@@ -79,11 +79,11 @@ export function deliveredEmail({ video, client, final }) {
     body:
       p(`Hi ${esc(first(client.name))},`) +
       p(`The final, full-quality version of <strong>${esc(video.title)}</strong> is ready. It stays in your portal whenever you need it.`) +
-      `<div style="margin:22px 0 4px">${final ? button(url, 'Download your video') : ''}${video.final_drive_url ? button(video.final_drive_url, 'Open in Google Drive', !final) : ''}</div>` +
+      `<div style="margin:22px 0 4px">${button(url, 'Watch and download')}${video.final_drive_url ? button(video.final_drive_url, 'Open in Google Drive', false) : ''}</div>` +
       small(`Want another reel? Sign in and click <strong>New video</strong>.<br><a href="${esc(url)}" style="color:#6b7280">${esc(url)}</a>`),
   });
   const text = `Hi ${first(client.name)},\n\nThe final version of "${video.title}" is ready.\n\n` +
-    (final ? `Download it here:\n${url}\n\n` : '') +
+    `Watch and download it here:\n${url}\n\n` +
     (video.final_drive_url ? `Google Drive:\n${video.final_drive_url}\n\n` : '') +
     `${config.portalName}\n`;
   return { subject, html, text };
