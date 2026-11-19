@@ -143,6 +143,18 @@ Every hour (and at start-up) the portal:
 - Each client sees only their own videos and files. Every download and stream checks who's asking, and raw footage is never served back to clients.
 - `.env`, `data/` (database, uploads, outbox) and `node_modules/` are git-ignored.
 
+## Running on AWS Lightsail
+
+The live portal runs on a Lightsail server (`reel-portal`, Ubuntu 24.04, Sydney, $5/month plan) with a static IP. The scripts are in `deploy/lightsail/`:
+
+| Script | Where it runs | What it does |
+| --- | --- | --- |
+| `setup.sh <admin-email> <ip>` | the server, once | Swap, security updates, Node 24 (checksum-verified), Caddy for HTTPS, a locked-down `portal` service, and `/etc/portal/portal.env` with a generated admin password |
+| `deploy.sh <ip> <key.pem>` | your Mac | Uploads the code (never `.env`, `data/` or tests), backs up the database, restarts, checks `/healthz`, and rolls back if the new version doesn't come up |
+| `set-domain.sh <domain>` | the server | After your DNS A record points at the static IP: switches Caddy to the domain with a free, auto-renewing certificate and updates `SITE_URL` |
+
+On the server, data lives in `/var/lib/portal` (database, daily backups, briefs) and settings in `/etc/portal/portal.env`. After editing settings (for example Gmail), run `sudo systemctl restart portal`.
+
 ## Going live (later)
 
 **Recommended for this implementation: Railway with one application instance and a persistent volume.** Railway Pro supports the existing Gmail/SMTP sender. Hobby needs an email provider's HTTPS API instead; that sender is not implemented here. See [Railway email restrictions](https://docs.railway.com/networking/outbound-networking) and [pricing](https://docs.railway.com/pricing/plans). Vercel requires moving SQLite and remaining filesystem writes to external services; a Drive-only media flow does not remove the need for a database.
