@@ -60,7 +60,7 @@
 
       const stages = card.querySelectorAll('[data-stages] li');
       if (stages.length) {
-        const idx = late ? stages.length - 1 : Math.min(stages.length - 1, Math.floor(p * stages.length));
+        const idx = Number(card.querySelector('[data-stages]').dataset.currentStage) || 0;
         stages.forEach((li, i) => {
           li.classList.toggle('done', i < idx);
           li.classList.toggle('current', i === idx);
@@ -134,6 +134,7 @@
           skew = s.now - Date.now();
           s.messages.forEach((m) => add(m, { fromPoll: true }));
           if (live && live.dataset.status && s.status !== live.dataset.status) { location.reload(); return; }
+          document.querySelectorAll('[data-stages]').forEach((el) => { el.dataset.currentStage = s.editing_stage; });
           document.querySelectorAll('[data-eta-card]').forEach((c) => { if (s.eta_at) c.dataset.eta = s.eta_at; });
           tick();
         }

@@ -57,6 +57,8 @@ export function videoState(video, viewer, afterId) {
     eta_at: video.eta_at,
     submitted_at: video.submitted_at,
     updated_at: video.updated_at,
+    editing_stage: video.editing_stage,
+    drive_check_result: video.drive_check_result,
     messages,
   };
 }

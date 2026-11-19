@@ -11,6 +11,7 @@ import { flash } from '../auth.js';
 import { listMessages, markRead, threadHandlers, unreadForClient } from '../thread.js';
 import { chatPanel } from '../views/chat.js';
 import { listStyles, getStyle } from '../styles.js';
+import { replaceFootage } from '../jobs.js';
 
 export const clientRoutes = Router();
 
@@ -63,19 +64,30 @@ clientRoutes.post('/videos/new', requireClient, async (req, res) => {
   if (!isEmail(form.notify_email)) return fail('Add the email where we should tell you the video is ready.', 'email');
 
   // Catch the most common mistake before it costs an hour: a Drive link the editor can't open.
-  const access = await checkDriveAccess(form.drive_url);
-  if (DRIVE_PROBLEM[access]) return fail(DRIVE_PROBLEM[access], 'drive');
-
   const key = `${req.user.id}:${form.drive_url}`;
-  if (submitting.has(key)) return res.redirect(303, '/dashboard'); // double tap
+  if (submitting.has(key)) return fail('This link is already being checked. Please wait for the first submission.', 'drive');
   submitting.add(key);
   try {
+    const access = await checkDriveAccess(form.drive_url);
+    if (access !== 'shared') return fail(DRIVE_PROBLEM[access] || DRIVE_PROBLEM.unknown, 'drive');
     const client = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     const video = await submitDraft(createDraft(req.user, form.title), client, form);
     res.redirect(303, `/videos/${video.id}`);
   } finally {
     submitting.delete(key);
   }
+});
+
+// Clients can fix a revoked/incorrect footage link without creating another job.
+clientRoutes.post('/videos/:id/footage', requireClient, async (req, res, next) => {
+  const video = db.prepare("SELECT * FROM videos WHERE id = ? AND client_id = ? AND status NOT IN ('draft','delivered','cancelled')")
+    .get(Number(req.params.id), req.user.id);
+  if (!video) return next();
+  try {
+    await replaceFootage(video, req.user.id, req.body.drive_url, req.body.shared === 'yes');
+    flash(req, 'success', 'New footage link verified and saved. The studio has been told.');
+  } catch (err) { flash(req, 'error', err.message); }
+  res.redirect(303, `/videos/${video.id}`);
 });
 
 const ownedVideo = (req) =>

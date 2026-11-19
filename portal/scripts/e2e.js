@@ -26,13 +26,12 @@ try {
   process.exit(1);
 } catch { /* free: good */ }
 
-const server = spawn(process.execPath, ['server.js'], {
+const server = spawn(process.execPath, ['--import', path.join(portalDir, 'scripts/fixtures/drive-fetch.js'), 'server.js'], {
   cwd: portalDir,
   env: {
     PATH: process.env.PATH, HOME: process.env.HOME, PORT: String(PORT), HOST: '127.0.0.1', SITE_URL: BASE,
     PORTAL_DATA_DIR: path.join(tmp, 'data'), STUDIO_ROOT: studio, PORTAL_NAME: 'E2E Studio',
     ADMIN_EMAIL: ADMIN.email, ADMIN_PASSWORD: ADMIN.password, ALERT_EMAIL: 'alerts@e2e.test',
-    DRIVE_LINK_CHECK: 'off', // the test never calls Google
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -169,6 +168,14 @@ async function run() {
     await client.get('/dashboard');
     assert.equal((await client.api('POST', '/api/uploads', { kind: 'raw', name: 'a.mov', size: 10 })).res.status, 404);
   });
+  await step('private, uncertain and download-blocked links never create a job', async () => {
+    for (const [id, pattern] of [['1PRIVATE000000000000000', /requires access/], ['1UNKNOWN000000000000000', /could not confirm Drive access/], ['1BLOCKED000000000000000', /cannot be downloaded/]]) {
+      await refused({ ...good, drive_url: `https://drive.google.com/file/d/${id}/view` }, pattern);
+    }
+    const d = new DatabaseSync(path.join(tmp, 'data', 'portal.db'));
+    assert.equal(d.prepare('SELECT COUNT(*) AS n FROM videos').get().n, 0);
+    d.close();
+  });
   await step('client sends it with a Drive folder link; a brief lands in Raw/', async () => {
     await client.get('/videos/new');
     const res = await client.post('/videos/new', good);
@@ -179,10 +186,11 @@ async function run() {
     assert.match(brief, /drive\.google\.com\/drive\/folders\/1AbCdEfGhIjKlMnOpQrStUvWx/);
     assert.match(brief, /instagram\.com\/reel\/abc/);
   });
-  await step('client sees the live editing screen with a countdown', async () => {
+  await step('client sees queued until the admin explicitly starts editing', async () => {
     const { text } = await client.get(`/videos/${videoId}`);
-    assert.match(text, /Your video is being edited/);
-    assert.match(text, /data-eta-card data-eta="\d+"/);
+    assert.match(text, /Your video is in the queue/);
+    assert.doesNotMatch(text, /data-eta-card data-eta="\d+"/);
+    assert.equal((await client.api('GET', `/api/videos/${videoId}/state`)).data.eta_at, null);
   });
   await step('another client cannot see or touch it', async () => {
     await admin.get('/admin/clients');
@@ -195,6 +203,55 @@ async function run() {
   });
 
   console.log('\nWhile editing');
+  await step('only admin can start a queued job; stale repeated actions are refused', async () => {
+    assert.equal((await client.post(`/admin/videos/${videoId}/control`, { action: 'start', state: 'queued' })).status, 404);
+    await admin.get(`/admin/videos/${videoId}`);
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'start', state: 'queued' });
+    const { text } = await client.get(`/videos/${videoId}`);
+    assert.match(text, /Your video is being edited/);
+    assert.match(text, /data-eta-card data-eta="\d+"/);
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'start', state: 'queued' });
+    assert.match((await admin.get(`/admin/videos/${videoId}`)).text, /job changed in another tab/);
+  });
+  await step('admin progress reaches the client and invalid stages are refused', async () => {
+    await admin.get(`/admin/videos/${videoId}`);
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'stage', state: 'editing', stage: '3' });
+    assert.equal((await client.api('GET', `/api/videos/${videoId}/state`)).data.editing_stage, 3);
+    assert.match((await client.get(`/videos/${videoId}`)).text, /data-current-stage="3"/);
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'stage', state: 'editing', stage: '999' });
+    assert.match((await admin.get(`/admin/videos/${videoId}`)).text, /valid editing stage/);
+  });
+  await step('hold and resume preserve the job and stop/restart its countdown', async () => {
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'hold', state: 'editing', note: 'Waiting for the product screenshots' });
+    const page = await client.get(`/videos/${videoId}`);
+    assert.match(page.text, /Your job is on hold/);
+    assert.match(page.text, /Waiting for the product screenshots/);
+    assert.equal((await client.api('GET', `/api/videos/${videoId}/state`)).data.eta_at, null);
+    await admin.get(`/admin/videos/${videoId}`);
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'resume', state: 'on_hold' });
+    assert.equal((await client.api('GET', `/api/videos/${videoId}/state`)).data.status, 'editing');
+  });
+  await step('cancel and reopen keep records and require a fresh editing start', async () => {
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'cancel', state: 'editing', note: 'Brief needs changing' });
+    assert.match((await client.get(`/videos/${videoId}`)).text, /This job was cancelled/);
+    await admin.get(`/admin/videos/${videoId}`);
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'reopen', state: 'cancelled', note: 'Updated brief received' });
+    assert.equal((await client.api('GET', `/api/videos/${videoId}/state`)).data.status, 'queued');
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'start', state: 'queued' });
+  });
+  await step('admin can recheck and replace footage; client can correct its own link', async () => {
+    await admin.post(`/admin/videos/${videoId}/footage`, { action: 'recheck' });
+    assert.match((await admin.get(`/admin/videos/${videoId}`)).text, /Anonymous download access confirmed/);
+    const replacement = 'https://drive.google.com/file/d/1REPLACEMENT0000000000000/view';
+    await admin.post(`/admin/videos/${videoId}/footage`, { drive_url: replacement, shared: 'yes' });
+    assert.match((await client.get(`/videos/${videoId}`)).text, /1REPLACEMENT0000000000000/);
+    await client.post(`/videos/${videoId}/footage`, { drive_url: FOOTAGE, shared: 'yes' });
+    const d = new DatabaseSync(path.join(tmp, 'data', 'portal.db'));
+    assert.match(d.prepare('SELECT drive_url FROM videos WHERE id = ?').get(videoId).drive_url, /folders/);
+    assert.ok(d.prepare('SELECT COUNT(*) AS n FROM job_events WHERE video_id = ?').get(videoId).n >= 8);
+    d.close();
+    assert.equal((await other.post(`/videos/${videoId}/footage`, { drive_url: replacement, shared: 'yes' })).status, 404);
+  });
   await step('chat goes both ways', async () => {
     await client.get(`/videos/${videoId}`);
     assert.equal((await client.api('POST', `/api/videos/${videoId}/messages`, { body: 'Add our logo please' })).res.status, 201);
@@ -230,12 +287,20 @@ async function run() {
     const { text } = await client.get(`/videos/${videoId}`);
     assert.match(text, /Your video is ready/);
     assert.match(text, /First cut/);
-    assert.match(text, /<iframe src="https:\/\/drive\.google\.com\/file\/d\/1V1V1V1V1V1V1V1V1V1V1V1V1\/preview"/);
+    assert.match(text, /data-drive-src="https:\/\/drive\.google\.com\/file\/d\/1V1V1V1V1V1V1V1V1V1V1V1V1\/preview"/);
   });
   await step('admin gets Gmail / WhatsApp / copy buttons with the message written', async () => {
     const { text } = await admin.get(`/admin/videos/${videoId}`);
     assert.match(text, /https:\/\/mail\.google\.com\/mail\/\?view=cm&amp;fs=1&amp;to=priya%40e2e\.test/);
     assert.match(text, /https:\/\/wa\.me\/\?text=/);
+  });
+  await step('Drive player loads on demand and offers retry and direct Drive access', async () => {
+    const { text } = await client.get(`/videos/${videoId}`);
+    assert.match(text, /data-drive-play/);
+    assert.match(text, /data-drive-retry/);
+    assert.doesNotMatch(text, /<iframe src=/);
+    assert.match(text, /Open it in Google Drive/);
+    assert.match(text, /\/js\/drive-player.js/);
   });
   await step('client asks for changes; admin sees the request', async () => {
     await client.get(`/videos/${videoId}`);
@@ -243,6 +308,9 @@ async function run() {
     const { text } = await admin.get(`/admin/videos/${videoId}`);
     assert.match(text, /Changes requested on v1/);
     assert.match(text, /\[0:04\] Bigger logo/);
+    const waiting = await client.get(`/videos/${videoId}`);
+    assert.match(waiting.text, /Your changes have been received/);
+    assert.equal((await client.api('GET', `/api/videos/${videoId}/state`)).data.eta_at, null);
   });
   await step('admin sends v2 (an open?id= link is tidied up)', async () => {
     await admin.get(`/admin/videos/${videoId}`);
@@ -256,6 +324,12 @@ async function run() {
     await client.post(`/videos/${videoId}/approve`, { version: '1' });
     const { text } = await client.get(`/videos/${videoId}`);
     assert.match(text, /A newer version \(v2\) just arrived/);
+    const old = await client.get(`/videos/${videoId}?v=1`);
+    assert.match(old.text, /Watch the latest v2/);
+    assert.doesNotMatch(old.text, /action="\/videos\/\d+\/approve"/);
+    assert.doesNotMatch(old.text, /action="\/videos\/\d+\/changes"/);
+    await client.post(`/videos/${videoId}/approve`, {});
+    assert.match((await client.get(`/videos/${videoId}`)).text, /A newer version/);
   });
   await step('client approves v2; status becomes preparing final', async () => {
     await client.get(`/videos/${videoId}`);
@@ -318,11 +392,25 @@ async function run() {
     assert.equal((await admin.post(`/admin/clients/${id}`, { name: 'Priya S.', email: 'priya.new@e2e.test', company: '' })).status, 303);
     assert.match(await new Browser().signIn('priya.new@e2e.test', 'new-password-123'), /\/dashboard$/);
   });
-  await step('a style reel uploaded in chunks becomes a style', async () => {
+  await step('styles are Drive links; video upload endpoints are unavailable', async () => {
     await admin.get('/admin/styles');
-    const done = await admin.adminUpload('style', null, 'sample.mp4', crypto.randomBytes(200_000), { name: 'Test style', description: 'For the test' });
-    assert.equal(done.res.status, 200, JSON.stringify(done.data));
+    assert.equal((await admin.api('POST', '/admin/api/uploads', { purpose: 'style', name: 'sample.mp4', size: 10 })).res.status, 404);
+    await admin.post('/admin/styles/drive', { drive_url: V1, name: 'Test style', description: 'For the test' });
     assert.match((await admin.get('/admin/styles')).text, /Test style/);
+    const data = new DatabaseSync(path.join(tmp, 'data', 'portal.db'));
+    assert.equal(data.prepare('SELECT dir FROM styles WHERE name = ?').get('Test style').dir, '');
+    data.close();
+  });
+  await step('reopening delivery requires a new version and fresh client approval', async () => {
+    await admin.get(`/admin/videos/${videoId}`);
+    await admin.post(`/admin/videos/${videoId}/control`, { action: 'reopen', state: 'delivered', note: 'New revision requested' });
+    await admin.post(`/admin/videos/${videoId}/deliver`, { source: 'approved' });
+    assert.equal((await client.api('GET', `/api/videos/${videoId}/state`)).data.status, 'queued');
+    const d = new DatabaseSync(path.join(tmp, 'data', 'portal.db'));
+    assert.equal(d.prepare('SELECT approved_version FROM videos WHERE id = ?').get(videoId).approved_version, null);
+    assert.equal(d.prepare('SELECT COUNT(*) AS n FROM versions WHERE video_id = ?').get(videoId).n, 2);
+    assert.equal(d.prepare('SELECT COUNT(*) AS n FROM job_events WHERE video_id = ? AND action = ?').get(videoId, 'reopen').n, 2);
+    d.close();
   });
 
   console.log('\nProduction');

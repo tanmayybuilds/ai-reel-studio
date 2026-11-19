@@ -2,13 +2,14 @@ import { html, timeAgo } from '../html.js';
 import { humanSize } from '../storage.js';
 import { config } from '../config.js';
 import { page, icon, asset } from './layout.js';
+import { EDITING_STAGES } from '../jobs.js';
 
 function credentialsCard(c) {
   const loginUrl = `${config.siteUrl}/login`;
   const message =
     `Hi ${c.name.split(' ')[0]}, here's your login for ${config.portalName}:\n\n` +
     `${loginUrl}\nEmail: ${c.email}\nPassword: ${c.password}\n\n` +
-    `Sign in, click "New video" and upload your footage. I'll take it from there.`;
+    `Sign in, click "New video" and share your Google Drive footage link. I'll take it from there.`;
   return html`
   <section class="card creds" aria-live="polite">
     <div class="creds-head">
@@ -117,10 +118,12 @@ const clockTime = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: 'nume
 const WORKING = ['editing', 'changes', 'exporting'];
 
 export const QUEUE_FILTERS = [
-  ['active', 'To do', ['editing', 'changes', 'exporting']],
+  ['active', 'To do', ['queued', 'editing', 'changes', 'exporting']],
+  ['held', 'On hold', ['on_hold']],
+  ['cancelled', 'Cancelled', ['cancelled']],
   ['review', 'Waiting on client', ['review']],
   ['delivered', 'Delivered', ['delivered']],
-  ['all', 'All', ['editing', 'changes', 'exporting', 'review', 'delivered']],
+  ['all', 'All', ['queued', 'editing', 'changes', 'exporting', 'review', 'delivered', 'on_hold', 'cancelled']],
 ];
 
 export function queueList(videos) {
@@ -163,12 +166,13 @@ export function queuePage(req, { videos, filter, counts }) {
 // ---------- video workspace ----------
 
 const STATUS_LABEL = {
+  queued: ['Queued', 'accent'], on_hold: ['On hold', 'warn'], cancelled: ['Cancelled', 'muted'],
   editing: ['Editing', 'accent'], review: ['Ready to review', 'ok'], changes: ['Changes requested', 'warn'],
   exporting: ['Preparing final', 'accent'], delivered: ['Delivered', 'done'], draft: ['Draft', 'muted'],
 };
 export const statusBadgeAdmin = (s) => html`<span class="badge badge-${(STATUS_LABEL[s] || STATUS_LABEL.draft)[1]}">${(STATUS_LABEL[s] || STATUS_LABEL.draft)[0]}</span>`;
 
-export function workspacePage(req, { video, client, files, chat, versions = [], changeRequest = null }) {
+export function workspacePage(req, { video, client, files, chat, versions = [], changeRequest = null, history = [] }) {
   const working = WORKING.includes(video.status);
   const by = (k) => files.filter((f) => f.kind === k);
   const fileRows = (list) => list.map((f) => html`
@@ -197,6 +201,7 @@ export function workspacePage(req, { video, client, files, chat, versions = [], 
 
     <div class="ws" data-live data-status="${video.status}">
       <div class="ws-main">
+        ${jobControls(req, video)}
         ${working ? html`
         <section class="card ws-eta" data-eta-card data-eta="${video.eta_at}" data-start="${video.submitted_at}">
           <div class="ws-eta-top">
@@ -218,6 +223,20 @@ export function workspacePage(req, { video, client, files, chat, versions = [], 
             <a class="btn btn-primary" href="${video.drive_url}" target="_blank" rel="noopener noreferrer">${icon.drive} Open the footage in Google Drive</a>
             <button class="btn btn-ghost" type="button" data-copy-text="${video.drive_url}">${icon.copy} Copy link</button>
           </div>` : ''}
+          <p class="small ${video.drive_check_result === 'shared' ? 'help-ok' : 'warn-text'}">${video.drive_check_result === 'shared' ? 'Anonymous download verified' : 'Access needs checking'}${video.drive_checked_at ? html` · <time data-ts="${video.drive_checked_at}">${clockTime(video.drive_checked_at)}</time>` : ''}</p>
+          <form method="post" action="/admin/videos/${video.id}/footage">
+            <input type="hidden" name="_csrf" value="${req.csrf}"><input type="hidden" name="action" value="recheck">
+            <button class="btn btn-ghost btn-sm" type="submit">Recheck Drive access</button>
+          </form>
+          ${!['delivered', 'cancelled'].includes(video.status) ? html`
+          <details class="footage-replace"><summary>Replace footage link</summary>
+            <form class="stack" method="post" action="/admin/videos/${video.id}/footage">
+              <input type="hidden" name="_csrf" value="${req.csrf}">
+              <label class="field"><span>New Google Drive link</span><input type="url" name="drive_url" required></label>
+              <label class="check"><input type="checkbox" name="shared" value="yes" required><span class="check-box" aria-hidden="true">${icon.check}</span><span>Shared with Anyone with the link, with downloads allowed</span></label>
+              <button class="btn btn-sm" type="submit">Verify and replace</button>
+            </form>
+          </details>` : ''}
           <dl class="sent ws-sent">
             ${by('raw').length ? html`<dt>Uploaded footage</dt><dd><ul class="ws-files">${fileRows(by('raw'))}</ul></dd>` : ''}
             ${video.reference_url ? html`<dt>Reference reel</dt><dd><a href="${video.reference_url}" target="_blank" rel="noopener noreferrer">${video.reference_url}</a></dd>` : ''}
@@ -229,6 +248,9 @@ export function workspacePage(req, { video, client, files, chat, versions = [], 
         </section>
 
         ${stageCards(req, { video, client, versions, changeRequest })}
+        <section class="card"><h2 class="card-title">Job history</h2>
+          ${history.length ? html`<ol class="job-history">${history.map((e) => html`<li><strong>${e.actor || 'Studio'}</strong> · <time data-ts="${e.created_at}">${clockTime(e.created_at)}</time><p>${e.detail}</p></li>`)}</ol>` : html`<p class="muted small">New actions will appear here. Earlier chat and versions are kept.</p>`}
+        </section>
       </div>
       <div class="ws-side">${chat}</div>
     </div>`,
@@ -236,6 +258,27 @@ export function workspacePage(req, { video, client, files, chat, versions = [], 
 }
 
 // ---------- workspace: send edits, deliver, share ----------
+
+function jobControls(req, video) {
+  const hidden = html`<input type="hidden" name="_csrf" value="${req.csrf}"><input type="hidden" name="state" value="${video.status}">`;
+  const button = (action, label) => html`<form method="post" action="/admin/videos/${video.id}/control">${hidden}<input type="hidden" name="action" value="${action}"><button class="btn btn-primary" type="submit">${label}</button></form>`;
+  return html`<section class="card job-controls"><h2 class="card-title">Job controls</h2>
+    ${['queued', 'changes'].includes(video.status) ? html`<p class="muted small">Waiting in your queue. Start editing to begin the client's estimated countdown.</p>${button('start', video.status === 'changes' ? 'Start revision' : 'Start editing')}` : ''}
+    ${video.status === 'on_hold' ? html`<p class="muted">${video.status_note}</p>${button('resume', 'Resume job')}` : ''}
+    ${video.status === 'editing' ? html`
+      <form class="stack" method="post" action="/admin/videos/${video.id}/control">${hidden}<input type="hidden" name="action" value="stage">
+        <label class="field"><span>Current editing stage</span><select name="stage">${EDITING_STAGES.map((s, i) => html`<option value="${i}" ${video.editing_stage === i ? 'selected' : ''}>${s}</option>`)}</select></label>
+        <button class="btn btn-sm" type="submit">Update client progress</button>
+      </form>` : ''}
+    <details class="job-options"><summary>${['delivered', 'cancelled'].includes(video.status) ? 'Reopen this job' : 'Hold or cancel this job'}</summary>
+      <form class="stack" method="post" action="/admin/videos/${video.id}/control" data-confirm="Update this job? The reason will be visible to the client.">${hidden}
+        <label class="field"><span>Action</span><select name="action">${['delivered', 'cancelled'].includes(video.status) ? html`<option value="reopen">Reopen in queue</option>` : html`${video.status !== 'on_hold' ? html`<option value="hold">Put on hold</option>` : ''}<option value="cancel">Cancel job</option>`}</select></label>
+        <label class="field"><span>Reason shown to the client</span><textarea name="note" rows="2" maxlength="2000" required></textarea></label>
+        <button class="btn btn-sm" type="submit">Save action</button>
+      </form>
+    </details>
+  </section>`;
+}
 
 const enc = encodeURIComponent;
 const first = (name) => String(name || '').split(' ')[0] || 'there';
@@ -371,7 +414,7 @@ function stageCards(req, { video, client, versions, changeRequest }) {
     </section>
     ${versionsList(video, client, versions, video.approved_version)}`;
   }
-  return '';
+  return versionsList(video, client, versions, video.approved_version);
 }
 
 // ---------- edit one client ----------

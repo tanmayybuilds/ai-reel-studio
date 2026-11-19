@@ -4,6 +4,8 @@ import { humanSize } from '../storage.js';
 import { STATUS } from '../videos.js';
 import { referencePicker } from './styles.js';
 import { drivePreviewUrl, driveDownloadUrl, parseDriveUrl } from '../drive.js';
+import { EDITING_STAGES } from '../jobs.js';
+import { drivePlayer } from './drive-player.js';
 
 const clock = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
 const day = (ms) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -135,7 +137,7 @@ export function newVideoPage(req, { form, styles = [], error = '', field = '' })
           <p class="muted">Put the camera files (plus any voiceover or screenshots) in one Google Drive folder.</p></div></div>
         <ol class="share-steps">
           <li><span>1</span><div>Open the file or folder in <a href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer">Google Drive</a>. Upload at <strong>original quality</strong>.</div></li>
-          <li><span>2</span><div>Tap <strong>Share</strong> → <strong>General access</strong> → <strong>Anyone with the link</strong> (Viewer is fine).</div></li>
+          <li><span>2</span><div>Tap <strong>Share</strong> → <strong>General access</strong> → <strong>Anyone with the link</strong>. Allow viewers to download the files.</div></li>
           <li><span>3</span><div>Tap <strong>Copy link</strong> and paste it below.</div></li>
         </ol>
         <label class="field"><span>Google Drive link</span>
@@ -145,7 +147,7 @@ export function newVideoPage(req, { form, styles = [], error = '', field = '' })
         <label class="check ${bad('shared')}" data-field="shared">
           <input type="checkbox" name="shared" value="yes" required ${form.shared ? 'checked' : ''}>
           <span class="check-box" aria-hidden="true">${icon.check}</span>
-          <span>I've set this link to <strong>Anyone with the link</strong>, so the editor can open it.</span>
+          <span>I've set this link to <strong>Anyone with the link</strong> and allowed downloads, so the editor can use the original files.</span>
         </label>
       </section>
 
@@ -162,7 +164,7 @@ export function newVideoPage(req, { form, styles = [], error = '', field = '' })
       </section>
 
       <div class="nv-submit">
-        <p class="muted small" data-submit-note>You can close the app after this. We'll email you when the video is ready.</p>
+        <p class="muted small" data-submit-note>We verify anonymous download access before submitting. Keep folders under 50 files. You can close the app once your job is queued.</p>
         <button class="btn btn-primary btn-lg" type="submit" data-submit>Send to the editor</button>
       </div>
     </form>
@@ -172,23 +174,14 @@ export function newVideoPage(req, { form, styles = [], error = '', field = '' })
 
 // ---------- video page: live "being edited" screen ----------
 
-export const STAGES = [
-  'Watching every take',
-  'Picking the best takes',
-  'Cutting on the beat',
-  'Timing captions word by word',
-  'Adding motion graphics',
-  'Layering sound design',
-  'Final polish',
-];
+export const STAGES = EDITING_STAGES;
 
 const WORKING = {
   editing: { eyebrow: 'Your video is being edited', late: 'Finishing touches. Almost there.' },
-  changes: { eyebrow: 'Making your changes', late: 'Finishing your changes. Almost there.' },
   exporting: { eyebrow: 'Preparing your final file', late: 'Wrapping up your final file.' },
 };
 
-function sentDetails(video, files) {
+function sentDetails(video, files, req) {
   const by = (k) => files.filter((f) => f.kind === k);
   const fileList = (list) => html`<ul class="sent-files">${list.map((f) => html`
     <li>${f.kind === 'voiceover' ? icon.mic : f.kind === 'asset' ? icon.image : icon.film}<span>${f.original_name}</span><span class="muted">${humanSize(f.size)}</span></li>`)}</ul>`;
@@ -204,6 +197,14 @@ function sentDetails(video, files) {
       ${by('asset').length ? html`<dt>Screenshots & recordings</dt><dd>${fileList(by('asset'))}</dd>` : ''}
       ${video.notes ? html`<dt>Notes</dt><dd class="pre">${video.notes}</dd>` : ''}
     </dl>
+    ${req && !['delivered', 'cancelled'].includes(video.status) ? html`
+      <p class="small ${video.drive_check_result === 'shared' ? 'help-ok' : 'warn-text'}">${video.drive_check_result === 'shared' ? 'Footage download access verified.' : 'Please check your footage sharing settings.'}</p>
+      <form class="stack" method="post" action="/videos/${video.id}/footage">
+        <input type="hidden" name="_csrf" value="${req.csrf}">
+        <label class="field"><span>Replace footage link</span><input type="url" name="drive_url" required placeholder="https://drive.google.com/…"></label>
+        <label class="check"><input type="checkbox" name="shared" value="yes" required><span class="check-box" aria-hidden="true">${icon.check}</span><span>Anyone with the link can view and download</span></label>
+        <button class="btn btn-sm" type="submit">Verify and replace link</button>
+      </form>` : ''}
   </details>`;
 }
 
@@ -243,23 +244,28 @@ export function videoPage(req, { video, files, chat }) {
     tab: 'videos',
     body: html`
     ${vpHead(video)}
-    <div class="work ${working ? 'work-editing' : ''}" data-live data-status="${video.status}">
+    <div class="work ${working ? 'work-editing' : ''}" data-live data-status="${video.status}" data-stage="${video.editing_stage}">
       ${working ? editingStage() : ''}
       <div class="work-side">
+        ${!working ? html`<section class="card eta-card">
+          <p class="eyebrow">${video.status === 'queued' ? 'Your video is in the queue' : video.status === 'changes' ? 'Your changes have been received' : video.status === 'on_hold' ? 'Your job is on hold' : 'This job was cancelled'}</p>
+          <h2>${['queued', 'changes'].includes(video.status) ? 'Your editor will pick it up.' : video.status === 'on_hold' ? 'Waiting for the next step' : 'Your files and chat are kept'}</h2>
+          <p class="muted">${video.status_note || (['queued', 'changes'].includes(video.status) ? 'Your editor will start the job and set an estimated ready time. You can close this page and return from your dashboard.' : 'Message the studio below if you need help.')}</p>
+        </section>` : ''}
         ${working ? html`
         <section class="card eta-card" data-eta-card data-eta="${video.eta_at}" data-start="${video.submitted_at}">
           <p class="eyebrow"><span class="live-dot"></span>${working.eyebrow}</p>
           <div class="eta-big" data-countdown>--:--</div>
-          <p class="eta-sub muted" data-eta-sub>Ready around <strong data-eta-clock>${clock(video.eta_at)}</strong></p>
+          <p class="eta-sub muted" data-eta-sub>Estimated ready time <strong data-eta-clock>${clock(video.eta_at)}</strong></p>
           <p class="eta-late" data-eta-late hidden>${working.late}</p>
           <div class="bar eta-bar"><span data-eta-progress></span></div>
-          <ol class="stages" data-stages>${STAGES.map((s) => html`<li>${s}</li>`)}</ol>
+          ${video.status !== 'exporting' ? html`<ol class="stages" data-stages data-current-stage="${video.editing_stage}">${STAGES.map((s, i) => html`<li class="${i < video.editing_stage ? 'done' : i === video.editing_stage ? 'current' : ''}">${s}</li>`)}</ol><p class="muted small">Progress is updated by your editor. The countdown is an estimate.</p>` : ''}
           <p class="close-note">${icon.check}<span>You can close the app. We'll email <strong>${video.notify_email}</strong> when it's ready, and it'll be waiting here.</span></p>
         </section>` : ''}
         ${chat}
       </div>
     </div>
-    ${sentDetails(video, files)}`,
+    ${sentDetails(video, files, req)}`,
   });
 }
 
@@ -280,7 +286,7 @@ function player(video, { link, fileId }) {
   if (preview) {
     return html`
     <div class="player-phone player-drive">
-      <iframe src="${preview}" title="Your video" allow="autoplay; fullscreen" allowfullscreen loading="lazy" referrerpolicy="no-referrer"></iframe>
+      ${drivePlayer(link, 'Your video')}
     </div>
     <p class="player-alt muted small">Not playing? ${ext(link, 'Open it in Google Drive', 'linkish-a')}</p>`;
   }
@@ -319,9 +325,9 @@ export function reviewPage(req, { video, files, versions, showing, chat }) {
       <div class="work-side">
         <section class="card review-card">
           <p class="eyebrow"><span class="live-dot"></span>Ready to review</p>
-          <h2>${latest.number === 1 ? 'Your video is ready' : `Version ${latest.number} is ready`}</h2>
-          ${latest.note ? html`<blockquote class="studio-note pre">${latest.note}</blockquote>` : ''}
-          ${old ? html`<div class="flash flash-info">You're watching v${showing.number}. Your answer below is about the latest, <a href="/videos/${video.id}">v${latest.number}</a>.</div>` : ''}
+          <h2>${old ? `Watching version ${showing.number}` : latest.number === 1 ? 'Your video is ready' : `Version ${latest.number} is ready`}</h2>
+          ${showing.note ? html`<blockquote class="studio-note pre">${showing.note}</blockquote>` : ''}
+          ${old ? html`<div class="flash flash-info">You're watching v${showing.number}. <a href="/videos/${video.id}">Watch the latest v${latest.number}</a> before approving or requesting changes.</div>` : html`
 
           <form method="post" action="/videos/${video.id}/approve" data-confirm="Approve version ${latest.number}? We'll prepare your final video.">
             <input type="hidden" name="_csrf" value="${req.csrf}">
@@ -340,11 +346,12 @@ export function reviewPage(req, { video, files, versions, showing, chat }) {
               ? html`<div class="row review-row"><button type="button" class="btn btn-ghost btn-sm" data-stamp>${icon.clock} <span>Add time 0:00</span></button><button type="submit" class="btn">Request changes</button></div>`
               : html`<p class="help">Tip: mention the time, like “at 0:12”, so the editor finds the spot.</p><button type="submit" class="btn btn-block">Request changes</button>`}
           </form>
+          `}
         </section>
         ${chat}
       </div>
     </div>
-    ${sentDetails(video, files)}
+    ${sentDetails(video, files, req)}
     <script src="${asset('/js/review.js')}" defer></script>`,
   });
 }
@@ -382,6 +389,6 @@ export function deliveredPage(req, { video, files, versions, showing, final, cha
         ${chat}
       </div>
     </div>
-    ${sentDetails(video, files)}`,
+    ${sentDetails(video, files, req)}`,
   });
 }

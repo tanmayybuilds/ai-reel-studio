@@ -3,10 +3,11 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAdmin, flash } from '../auth.js';
 import {
-  listStyles, getStyle, createStyle, deleteStyle, activeCount, approvedReels,
-  stylePreviewPath, stylePosterPath, MAX_STYLES,
+  listStyles, getStyle, deleteStyle, activeCount,
+  stylePreviewPath, stylePosterPath, MAX_STYLES, createDriveStyle,
 } from '../styles.js';
 import { stylesPage } from '../views/styles.js';
+import { parseDriveUrl, checkDriveAccess, DRIVE_PROBLEM, drivePreviewUrl } from '../drive.js';
 
 export const styleRoutes = Router();
 
@@ -20,7 +21,9 @@ function styleForViewer(req) {
 }
 styleRoutes.get('/styles/:id/preview.mp4', (req, res, next) => {
   const style = styleForViewer(req);
-  if (!style || !fs.existsSync(stylePreviewPath(style))) return next();
+  if (!style) return next();
+  if (style.drive_url) return res.redirect(drivePreviewUrl(style.drive_url));
+  if (!stylePreviewPath(style) || !fs.existsSync(stylePreviewPath(style))) return next();
   res.set('Cache-Control', 'private, max-age=3600');
   res.sendFile(stylePreviewPath(style), { dotfiles: 'allow' }); // supports Range, so the video can seek
 });
@@ -37,29 +40,35 @@ styleRoutes.get('/styles/:id/poster.jpg', (req, res, next) => {
 styleRoutes.use('/admin/styles', requireAdmin);
 
 styleRoutes.get('/admin/styles', (req, res) => {
-  res.send(stylesPage(req, { styles: listStyles(), approved: approvedReels(), active: activeCount() }));
+  res.send(stylesPage(req, { styles: listStyles(), active: activeCount() }));
 });
 
-// Use one of the studio's approved reels (from Approved Videos/) as a style.
-styleRoutes.post('/admin/styles/from-approved', async (req, res) => {
-  const pick = approvedReels().find((r) => r.folder === req.body.folder && r.file === req.body.file);
-  const name = String(req.body.name || '').trim() || pick?.folder;
-  if (!pick) {
-    flash(req, 'error', 'That reel wasn’t found in Approved Videos.');
-    return res.redirect(303, '/admin/styles');
-  }
-  const style = await createStyle({ file: pick.path, name, description: String(req.body.description || ''), sourceName: pick.file });
-  flash(req, 'success', style.active ? `“${style.name}” is live for clients.` : `“${style.name}” was added but is hidden: you already show ${MAX_STYLES} styles.`);
+styleRoutes.post('/admin/styles/drive', async (req, res) => {
+  try {
+    const style = await createDriveStyle({ link: String(req.body.drive_url || ''), name: String(req.body.name || ''), description: String(req.body.description || '') });
+    flash(req, 'success', style.active ? 'Drive style added for clients.' : `Style added hidden. You already show ${MAX_STYLES} styles.`);
+  } catch (err) { flash(req, 'error', err.message); }
   res.redirect(303, '/admin/styles');
 });
 
-styleRoutes.post('/admin/styles/:id', (req, res) => {
+// Editing an existing local sample can switch it to Drive without deleting its original.
+styleRoutes.post('/admin/styles/:id', async (req, res) => {
   const style = getStyle(req.params.id);
   const name = String(req.body.name || '').trim().slice(0, 60);
   if (style && name) {
-    db.prepare('UPDATE styles SET name = ?, description = ? WHERE id = ?')
-      .run(name, String(req.body.description || '').trim().slice(0, 240) || null, style.id);
-    flash(req, 'success', 'Saved.');
+    try {
+      let link = style.drive_url;
+      if (req.body.drive_url) {
+        const d = parseDriveUrl(req.body.drive_url);
+        if (!d.ok || d.kind !== 'file') throw new Error('Use a Google Drive video file link.');
+        const access = await checkDriveAccess(d.url);
+        if (access !== 'shared') throw new Error(DRIVE_PROBLEM[access] || DRIVE_PROBLEM.unknown);
+        link = d.url;
+      }
+      db.prepare('UPDATE styles SET name = ?, description = ?, drive_url = ? WHERE id = ?')
+        .run(name, String(req.body.description || '').trim().slice(0, 240) || null, link, style.id);
+      flash(req, 'success', 'Saved.');
+    } catch (err) { flash(req, 'error', err.message); }
   }
   res.redirect(303, '/admin/styles');
 });

@@ -5,7 +5,6 @@ import { db } from './src/db.js';
 import { sessionMiddleware, csrfCheck, ensureAdmin } from './src/auth.js';
 import { authRoutes } from './src/routes/auth.js';
 import { adminRoutes } from './src/routes/admin.js';
-import { adminUploadRoutes } from './src/routes/admin-uploads.js';
 import { clientRoutes } from './src/routes/client.js';
 import { styleRoutes } from './src/routes/styles.js';
 import { emailRoutes } from './src/routes/emails.js';
@@ -109,7 +108,6 @@ app.use((req, res, next) => {
 app.use(authRoutes);
 app.use(accountRoutes);
 app.use(adminRoutes);
-app.use(adminUploadRoutes);
 app.use(clientRoutes);
 app.use(styleRoutes);
 app.use(emailRoutes);
@@ -129,7 +127,7 @@ process.on('unhandledRejection', (err) => console.error('Unhandled promise rejec
 
 const server = app.listen(config.port, config.host, () => {
   console.log(`${config.portalName} portal running at http://${config.host === '0.0.0.0' ? 'localhost' : config.host}:${config.port} (public address ${config.siteUrl})`);
-  console.log(`Uploads go to ${path.join(config.studioRoot, 'Raw')}`);
+  console.log(`Briefs go to ${path.join(config.studioRoot, 'Raw')}. Video files stay in Google Drive.`);
   const mail = mailStatus();
   console.log(mail.mode === 'off' ? 'Email is off: emails are saved to data/outbox/ (see Admin → Emails).' : `Email is on (${mail.mode}), sending as ${mail.sender}.`);
 });

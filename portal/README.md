@@ -13,7 +13,7 @@ cp .env.example .env   # first time only, then edit .env
 npm start
 ```
 
-Open http://localhost:4400. Sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`, and you land on the **Queue**. Needs Node 22.13 or newer (it uses Node's built-in SQLite) and `ffmpeg` for poster frames and style previews. Without ffmpeg everything still works, just without posters.
+Open http://localhost:4400. Sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`, and you land on the **Queue**. Needs Node 22.13 or newer (it uses Node's built-in SQLite). The normal Drive workflow does not need FFmpeg; only the legacy demo/local-preview helper uses it.
 
 `npm run dev` restarts the server whenever a file changes.
 
@@ -23,7 +23,7 @@ Open http://localhost:4400. Sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD` from
 npm test
 ```
 
-This runs 30 end-to-end checks against a throwaway copy of the portal on port 4499. It covers accounts and password changes, the Drive-only New video form (every required field, links tidied), the installable app, chat, ETA, versions and changes, refusing an approval for a version the client never saw, double-click-safe delivery with a byte-for-byte download check, emails, health checks, the production safety checks and access rules. It never touches your real data. Run it after any change.
+This runs Drive-verification and database-migration tests, followed by end-to-end checks against a throwaway portal on port 4499. It covers access failures, queued jobs, admin start/hold/resume/cancel/reopen controls, manual editing stages, footage replacement, chat, ETA, versions, stale approvals, delivery, emails, Drive styles, the installable app, production checks and access rules. Test processes explicitly preload fake Google responses; production has no verification bypass. Real data is never touched. Run it after any change.
 
 ### Demo
 
@@ -48,28 +48,34 @@ This builds the style library from up to five reels in `../Approved Videos/` (or
 
 ## Everything goes through Google Drive
 
-The portal stores no footage, so hosting stays small and cheap.
+New footage, edits, finals and style samples stay on Drive; the host stores accounts, messages, links, history and briefs. Existing local samples and older uploaded jobs are preserved.
 
 - **Clients** share their footage as a Google Drive link (one folder with the camera files, voiceover and screenshots works best). The New video form needs a **title**, a **reference reel or one of your styles**, the **Drive link**, a tick confirming it's shared as **Anyone with the link**, and an **email**. Notes are optional.
-- When they tap **Send**, the portal asks Google, as an anonymous visitor, whether the link opens. A link that isn't shared yet or doesn't exist is refused, with the fix spelled out. If Google doesn't give a clear answer, the link is accepted. Set `DRIVE_LINK_CHECK=off` to skip the check.
-- **You** send each edit and the final as a Drive link too. A *file* link plays inside the client's portal (Google Drive's own player). A *folder* link shows an "Open in Google Drive" button. Links are tidied automatically (`open?id=`, `?usp=sharing` and so on).
+- When they tap **Send**, the portal requests a tiny download range without a Google login and requires actual file bytes. A successful Drive webpage alone does not count. Private, missing, download-disabled and uncertain links are refused without creating a job, and the form keeps its values. Large-file confirmation screens must lead to real bytes before verification succeeds. Checks have a 25-second deadline and never save footage. There is no `DRIVE_LINK_CHECK=off` bypass.
+- Folder links are inspected through Google's anonymous folder listing. Visible files and subfolders must pass download verification (up to 50 entries, 10 folders and 5 levels). Empty, unreadable or oversized folders are refused. A Google-native document is not a footage file; put camera files, audio and image assets in the folder. If Google's listing changes or cannot be checked, use a direct video file link. Checks establish access at that moment; sharing can be changed later, so admin has a **Recheck Drive access** control.
+- Resource keys on shared links are preserved. Only HTTPS Drive file/folder links are accepted, and every download redirect is restricted to expected Google hosts.
+- **You** send each edit and the final as a Drive link too. A *file* link plays inside the client's portal using Google Drive's player. A *folder* link shows an "Open in Google Drive" button. Links are tidied automatically (`open?id=`, `?usp=sharing` and so on).
+- Reviews and Drive style samples have an explicit **Play video** button, loading feedback, **Reload player**, and a direct Drive link. Video playback stays on Google; the portal never proxies it. Playback still depends on Google's processing, sharing and browser support.
 - Videos from before this change keep their stored files and still play.
 
 ## Styles (for clients without a reference)
 
-- **Admin → Styles** shows 2–5 sample reels you've edited. You can add one from `Approved Videos/` or upload one, then rename it, describe what makes it different, reorder it, hide it or remove it. Each style gets a light 720p preview and a poster in `data/styles/<id>/`. Your original reel is never touched.
+- **Admin → Styles** lets you add a verified Google Drive video link, rename it, describe it, reorder it, hide it or remove it. New style videos stay on Drive. Existing local previews continue working; paste a Drive link into their edit form to switch playback. Original files are preserved, and the website no longer exposes a video-upload endpoint.
 - On **New video**, step 2 ("The look") has a toggle: **I have a reference reel** (paste a link) or **No reference? Pick our style**, which shows tappable preview cards. The chosen style appears in the chat ("Style picked: …"), the admin workspace and `brief.md`.
 
 ## While a video is being edited
 
-- **Client:** after Continue, the client sees the "being edited" screen. It shows a live countdown to the ready time, the editing stages, an animated preview and a chat with you. They can close the window. The page reopens in the same state from the dashboard, which shows "N new messages" when you've replied. Once the time passes, the client sees "Almost there", never a negative number.
+- **Client:** after verified submission, the client sees **Queued**. Only your **Start editing** action begins editing and the estimated countdown. Editing stages are set by you; they never advance because time passed. Requested revisions wait for your Start revision action too. Hold/cancel states show your reason and no countdown. The client can close the window and return to the same saved job, with unread-message badges. The countdown is an estimate, not a render-progress monitor.
 - **You:** **Queue** (`/admin/queue`) lists every video. Due jobs come first, with a timer that turns amber in the last 10 minutes and red when overdue, and a "new" badge for unread messages. The list refreshes every 15 seconds. Open a video to see its files (download, copy the path, Show in Finder), the client's links and notes, the chat, and the ETA buttons (−15 / +15 / +30 / +1 hr / 1 hr from now). The client's countdown updates within a few seconds.
 - The chat checks for new messages every 4 seconds while the page is open (every 20 seconds in a background tab).
+- **Job controls:** start a queued job; set the current editing stage; hold with a client-visible reason; resume; cancel with a reason; reopen a cancelled or delivered job. Reopening keeps history and versions, clears the previous approval, and requires a new version and fresh client approval before delivery. No control bypasses client approval or deletes their material. Stale actions from another tab are refused.
+- **Footage controls:** recheck access, replace a link only after verifying it, or ask the client in chat to use **What you sent → Replace footage link**. Replacement links are recorded in history and appended to the original generated brief.
+- **History:** submissions, controls, access checks, link replacements, deadlines, versions, approvals and deliveries are recorded with their actor and time. Previous final links are retained when reopening.
 
 ## Review and delivery
 
 1. **Send the edit.** In the video workspace, paste the Drive link to the edit and an optional note. It becomes **v1** (then v2, v3…). The client gets an email, and their open screen switches to review on its own. Under the version you'll find **Send via Gmail** (opens Gmail with the email already written), **WhatsApp** and **Copy message**, which work even before the portal's own email is set up.
-2. **The client reviews** in the embedded player and taps **Looks great, finalise it** or **Request changes** (with times like "at 0:12"). Approving only works for the version they're looking at.
+2. **The client reviews** in the embedded player and taps **Looks great, finalise it** or **Request changes** (with times like "at 0:12"). Older-version pages display that version's note and a link to the latest; approval/change forms are hidden there. The server also rejects stale or omitted version numbers.
 3. **Deliver.** One tap delivers the approved version's link, or paste a different Drive link (for example a full-quality export).
 4. **The client downloads.** They get **Download video** (Google Drive's download) and **Open in Google Drive**, plus the same share buttons for you.
 
@@ -103,7 +109,7 @@ Client footage, edits and finals live in Google Drive, not on the server.
 ## A day with the portal
 
 1. A client opens the app, taps **New**, gives a title, a reference reel or one of your styles, and the Drive link (shared and ticked), and taps **Send to the editor**. You get an email, and the job appears in **Queue** with a badge.
-2. Open the job and tap **Open the footage in Google Drive**. Download it into `Raw/` and edit with the studio skills as usual. Use the chat or the ETA buttons if it's taking longer.
+2. Open the job, tap **Start editing**, and **Open the footage in Google Drive**. Download it into your local `Raw/` and edit with the studio skills as usual. Set the current editing stage, use chat, and adjust the ETA when needed. The portal does not automatically invoke the editing skills.
 3. Upload the render to Google Drive, share it, and paste the link under **Send the edit**. The client gets an email, and you can also send it with **Send via Gmail** or **WhatsApp**.
 4. Changes come back as a "Change request" with times. Send the next version the same way.
 5. When they approve, tap **Deliver v2 as the final** (or paste a full-quality link). They get an email with Download and Google Drive buttons.
@@ -139,9 +145,21 @@ Every hour (and at start-up) the portal:
 
 ## Going live (later)
 
+**Recommended for this implementation: Railway with one application instance and a persistent volume.** Railway Pro supports the existing Gmail/SMTP sender. Hobby needs an email provider's HTTPS API instead; that sender is not implemented here. See [Railway email restrictions](https://docs.railway.com/networking/outbound-networking) and [pricing](https://docs.railway.com/pricing/plans). Vercel requires moving SQLite and remaining filesystem writes to external services; a Drive-only media flow does not remove the need for a database.
+
+The included `Dockerfile` uses Node 24, and `railway.toml` configures the build, health check and restart behaviour. Docker was not available on the development Mac during preparation, so the image still needs a real build/deploy check.
+
+1. Deploy the standalone portal repository (whose root contains this README and `Dockerfile`). If using the full studio repository, set the service root directory to `portal` and the config-file path to `/portal/railway.toml`.
+2. Mount a persistent volume at `/data`. The image sets `PORTAL_DATA_DIR=/data/portal` and `STUDIO_ROOT=/data/studio` so both the database and generated briefs survive deploys. Do not put either on ephemeral storage.
+3. Set `ADMIN_EMAIL`, a strong `ADMIN_PASSWORD`, `ADMIN_NAME`, `SITE_URL=https://<your-subdomain>`, `TRUST_PROXY=1`, `TZ=Asia/Kolkata` and your Gmail/SMTP settings in Railway variables. Keep app sleeping off. Use a single instance: SQLite and the attached volume are not a multiple-replica design.
+4. Add your subdomain and Railway's requested DNS records; HTTPS is issued by Railway. Verify login, real Drive playback, email delivery and persistence across a restart/redeploy.
+5. Enable scheduled volume backups and keep an independent copy of the SQLite backups. Test a restore before real client use. A mounted volume is storage, not an independent backup. Expect a brief interruption when a volume-backed service redeploys.
+
+Existing demo data is local and will not appear automatically in a fresh deployment. For a migration, copy a consistent database backup and any legacy style previews, and update legacy absolute file paths as needed. New Drive styles have no local video paths. Cloud-generated briefs are not automatically synchronised to this Mac; use the portal links/brief information when editing locally.
+
 Right now the portal listens only on this Mac (`HOST=127.0.0.1`). To let clients reach it:
 
-- **Keep it on this Mac:** install `cloudflared` and run a Cloudflare Tunnel to `http://localhost:4400` with your domain. Set `SITE_URL=https://your-domain` in `.env` (this also makes cookies secure and fixes the links in emails). Uploads already go in 32 MB chunks, under Cloudflare's 100 MB request limit. The Mac must stay on and awake.
+- **Keep it on this Mac:** install `cloudflared` and run a Cloudflare Tunnel to `http://localhost:4400` with your domain. Set `SITE_URL=https://your-domain` in `.env`. The Mac must stay on and awake.
 - **Or move to a server:** copy the `portal/` folder, set `STUDIO_ROOT` to where the footage should live, and sync that folder to your Mac for editing.
 - Before going live: change `ADMIN_PASSWORD` to something long, set up Gmail, and back up `data/portal.db`.
 

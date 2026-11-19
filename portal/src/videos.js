@@ -6,9 +6,13 @@ import { addSystemMessage } from './thread.js';
 import { notify } from './notify.js';
 import { config } from './config.js';
 import { rawRoot, stagingRoot, cleanName, uniquePath, moveFile, humanSize } from './storage.js';
+import { recordJobEvent } from './jobs.js';
 
 export const STATUS = {
   draft: { label: 'Draft', cls: 'muted' },
+  queued: { label: 'Queued', cls: 'accent' },
+  on_hold: { label: 'On hold', cls: 'warn' },
+  cancelled: { label: 'Cancelled', cls: 'muted' },
   editing: { label: 'Editing', cls: 'accent' },
   review: { label: 'Ready to review', cls: 'ok' },
   changes: { label: 'Changes requested', cls: 'warn' },
@@ -71,13 +75,13 @@ export async function submitDraft(video, client, fields) {
   db.prepare('DELETE FROM files WHERE video_id = ? AND complete = 0').run(video.id);
   await fsp.rm(path.join(stagingRoot, String(video.id)), { recursive: true, force: true });
 
-  const eta = submittedAt + config.defaultEtaMinutes * 60e3;
   db.prepare(`
-    UPDATE videos SET title = ?, folder = ?, status = 'editing', reference_url = ?, drive_url = ?, notes = ?,
-      notify_email = ?, eta_at = ?, submitted_at = ?, updated_at = ?, style_id = ?, style_name = ? WHERE id = ?`)
+    UPDATE videos SET title = ?, folder = ?, status = 'queued', reference_url = ?, drive_url = ?, notes = ?,
+      notify_email = ?, eta_at = NULL, submitted_at = ?, updated_at = ?, style_id = ?, style_name = ?,
+      drive_checked_at = ?, drive_check_result = 'shared' WHERE id = ?`)
     .run(fields.title, path.relative(config.studioRoot, videoDir), fields.reference_url || null, fields.drive_url || null,
-      fields.notes || null, fields.notify_email, eta, submittedAt, submittedAt, fields.style_id || null, fields.style_name || null, video.id);
-  addSystemMessage(video.id, 'Video sent to the studio.');
+      fields.notes || null, fields.notify_email, submittedAt, submittedAt, fields.style_id || null, fields.style_name || null, submittedAt, video.id);
+  recordJobEvent(video.id, client.id, 'submitted', 'Drive access verified. Your video is in the studio queue.');
   if (fields.style_name) addSystemMessage(video.id, `Style picked: ${fields.style_name}`);
   else if (fields.reference_url) addSystemMessage(video.id, 'Reference reel shared.');
 

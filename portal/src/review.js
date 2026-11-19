@@ -7,6 +7,7 @@ import { db, now, tx } from './db.js';
 import { config } from './config.js';
 import { addSystemMessage, addMessage } from './thread.js';
 import { notify } from './notify.js';
+import { recordJobEvent } from './jobs.js';
 
 const EXPORT_ETA_MINUTES = Number(process.env.EXPORT_ETA_MINUTES || 15);
 const postersRoot = path.join(config.dataDir, 'posters');
@@ -52,15 +53,15 @@ function transition(videoId, from, set, params, message) {
 }
 
 /** Admin sends an edited cut as a Drive link: it becomes v(N+1) and the client is asked to review it. */
-export function addVersion(video, link, note = '') {
+export function addVersion(video, link, note = '', actorId = null) {
   const version = tx(() => {
-    transition(video.id, ['editing', 'changes', 'review'], "status = 'review', eta_at = NULL", [], 'This video isn’t waiting for an edit.');
+    transition(video.id, ['editing', 'changes', 'review'], "status = 'review', eta_at = NULL, approved_version = NULL", [], 'Start or resume editing before sending a version.');
     const number = nextVersionNumber(video.id);
     db.prepare('INSERT INTO versions (video_id, number, link, note, created_at) VALUES (?, ?, ?, ?, ?)')
       .run(video.id, number, link, note.trim().slice(0, 2000) || null, now());
+    recordJobEvent(video.id, actorId, 'version', `Version ${number} is ready to review.`);
     return { number, link };
   });
-  addSystemMessage(video.id, `Version ${version.number} is ready to review.`);
   notify.versionReady(video.id, { number: version.number, note: note.trim(), link });
   return version;
 }
@@ -69,7 +70,7 @@ export function addVersion(video, link, note = '') {
 function checkWatched(video, versionNumber) {
   const v = latestVersion(video.id);
   if (!v) throw conflict('There’s no version to review yet.');
-  if (versionNumber && Number(versionNumber) !== v.number) {
+  if (!Number.isInteger(Number(versionNumber)) || Number(versionNumber) !== v.number) {
     throw conflict(`A newer version (v${v.number}) just arrived. Have a look at it first.`);
   }
   return v;
@@ -78,23 +79,29 @@ function checkWatched(video, versionNumber) {
 export function requestChanges(video, client, text, versionNumber) {
   const v = checkWatched(video, versionNumber);
   tx(() => {
-    transition(video.id, ['review'], "status = 'changes', eta_at = ?", [now() + config.defaultEtaMinutes * 60e3], 'This version can’t be changed right now.');
+    transition(video.id, ['review'], "status = 'changes', eta_at = NULL, editing_stage = 0", [], 'This version can’t be changed right now.');
     addMessage(video.id, client, text, 'changes');
+    recordJobEvent(video.id, client.id, 'changes', `Changes requested on v${v.number}.`, { publicMessage: false });
   });
   notify.changes(video.id, v.number, text);
 }
 
 export function approve(video, client, versionNumber) {
   const v = checkWatched(video, versionNumber);
-  transition(video.id, ['review'], "status = 'exporting', approved_version = ?, eta_at = ?", [v.number, now() + EXPORT_ETA_MINUTES * 60e3], 'There’s nothing to approve right now.');
-  addSystemMessage(video.id, `${client.name.split(' ')[0]} approved version ${v.number} for export.`);
+  tx(() => {
+    transition(video.id, ['review'], "status = 'exporting', approved_version = ?, eta_at = ?", [v.number, now() + EXPORT_ETA_MINUTES * 60e3], 'There’s nothing to approve right now.');
+    recordJobEvent(video.id, client.id, 'approved', `${client.name.split(' ')[0]} approved version ${v.number} for export.`);
+  });
   notify.approved(video.id, v.number);
 }
 
 /** Admin delivers the final video as a Drive link. */
-export function deliver(video, driveUrl) {
+export function deliver(video, driveUrl, actorId = null) {
   if (!driveUrl) throw Object.assign(new Error('Add the Google Drive link to the final video.'), { status: 400 });
-  transition(video.id, ['exporting'], "status = 'delivered', final_drive_url = ?, delivered_at = ?, eta_at = NULL", [driveUrl, now()], 'Deliver after the client approves.');
-  addSystemMessage(video.id, 'Final video delivered.');
+  tx(() => {
+    transition(video.id, ['exporting'], "status = 'delivered', final_drive_url = ?, delivered_at = ?, eta_at = NULL", [driveUrl, now()], 'Deliver after the client approves.');
+    recordJobEvent(video.id, actorId, 'delivered', `Final video delivered: ${driveUrl}`, { publicMessage: false });
+    addSystemMessage(video.id, 'Final video delivered.');
+  });
   notify.delivered(video.id);
 }

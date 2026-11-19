@@ -41,7 +41,7 @@ db.exec(`
     title           TEXT NOT NULL,
     folder          TEXT NOT NULL,            -- Raw/<Client>/<folder>/
     status          TEXT NOT NULL DEFAULT 'draft'
-                    CHECK (status IN ('draft','editing','review','changes','exporting','delivered')),
+                    CHECK (status IN ('draft','queued','editing','review','changes','exporting','delivered','on_hold','cancelled')),
     reference_url   TEXT,
     drive_url       TEXT,                     -- raw footage via Drive instead of upload
     notes           TEXT,
@@ -137,6 +137,32 @@ db.exec(`
 `);
 
 // Small additive migrations for databases created by earlier phases.
+// Older SQLite CHECK constraints need a table rebuild. Preserve every column/index and take a
+// consistent backup first; foreign keys are checked before committing the replacement.
+const videosSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'videos'").get().sql;
+if (!videosSql.includes("'queued'")) {
+  const backups = path.join(config.dataDir, 'backups');
+  fs.mkdirSync(backups, { recursive: true });
+  const backup = path.join(backups, `before-job-controls-${Date.now()}.db`);
+  db.exec(`VACUUM INTO '${backup.replace(/'/g, "''")}'`);
+  const indexes = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'videos' AND sql IS NOT NULL").all();
+  const ddl = videosSql.replace(/^CREATE TABLE\s+videos/i, 'CREATE TABLE videos_new')
+    .replace(/CHECK\s*\(status IN\s*\([^)]+\)\)/i,
+      "CHECK (status IN ('draft','queued','editing','review','changes','exporting','delivered','on_hold','cancelled'))");
+  db.exec('PRAGMA foreign_keys = OFF; BEGIN IMMEDIATE;');
+  try {
+    // Old demo databases can retain sign-in sessions for removed accounts. They are unusable;
+    // clear them just as sessionMiddleware does when one is presented. The backup keeps the original.
+    db.exec('DELETE FROM sessions WHERE user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE users.id = sessions.user_id)');
+    db.exec(ddl);
+    db.exec('INSERT INTO videos_new SELECT * FROM videos; DROP TABLE videos; ALTER TABLE videos_new RENAME TO videos;');
+    for (const i of indexes) db.exec(i.sql);
+    if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('Job migration failed foreign-key validation');
+    db.exec('COMMIT');
+  } catch (err) { db.exec('ROLLBACK'); throw err; }
+  finally { db.exec('PRAGMA foreign_keys = ON'); }
+}
+
 function addColumn(table, column, ddl) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
   if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
@@ -144,6 +170,23 @@ function addColumn(table, column, ddl) {
 addColumn('videos', 'style_id', 'style_id INTEGER REFERENCES styles(id) ON DELETE SET NULL');
 addColumn('videos', 'style_name', 'style_name TEXT'); // snapshot, survives the style being deleted
 addColumn('videos', 'approved_version', 'approved_version INTEGER'); // version number the client approved for export
+addColumn('videos', 'resume_status', 'resume_status TEXT');
+addColumn('videos', 'status_note', 'status_note TEXT');
+addColumn('videos', 'editing_stage', 'editing_stage INTEGER NOT NULL DEFAULT 0');
+addColumn('videos', 'work_started_at', 'work_started_at INTEGER');
+addColumn('videos', 'drive_checked_at', 'drive_checked_at INTEGER');
+addColumn('videos', 'drive_check_result', "drive_check_result TEXT NOT NULL DEFAULT 'unverified'");
+addColumn('styles', 'drive_url', 'drive_url TEXT');
+
+db.exec(`CREATE TABLE IF NOT EXISTS job_events (
+  id INTEGER PRIMARY KEY,
+  video_id INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+  actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS job_events_video ON job_events(video_id, id);`);
 
 // Versions can be Drive links: databases from before that need file_id made optional (SQLite has to
 // rebuild the table for that). Runs once; the data is copied over unchanged.

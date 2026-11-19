@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { db, now } from './db.js';
 import { config } from './config.js';
+import { checkDriveAccess, parseDriveUrl, DRIVE_PROBLEM } from './drive.js';
 
 const run = promisify(execFile);
 export const MAX_STYLES = 5;
@@ -18,6 +19,19 @@ export const listStyles = ({ activeOnly = false } = {}) =>
 
 export const getStyle = (id) => db.prepare('SELECT * FROM styles WHERE id = ?').get(Number(id)) || null;
 export const activeCount = () => db.prepare('SELECT COUNT(*) AS n FROM styles WHERE active = 1').get().n;
+
+export async function createDriveStyle({ link, name, description = '' }) {
+  const d = parseDriveUrl(link);
+  if (!d.ok || d.kind !== 'file') throw new Error('Use a Google Drive video file link for the style preview.');
+  const access = await checkDriveAccess(d.url);
+  if (access !== 'shared') throw new Error(DRIVE_PROBLEM[access] || DRIVE_PROBLEM.unknown);
+  const title = name.trim().slice(0, 60);
+  if (!title) throw new Error('Give the style a name.');
+  const sort = (db.prepare('SELECT MAX(sort) AS m FROM styles').get().m || 0) + 1;
+  const info = db.prepare('INSERT INTO styles (name, description, source_name, dir, drive_url, active, sort, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(title, description.trim().slice(0, 240) || null, 'Google Drive', '', d.url, activeCount() < MAX_STYLES ? 1 : 0, sort, now());
+  return getStyle(Number(info.lastInsertRowid));
+}
 
 async function duration(file) {
   try {
@@ -63,8 +77,9 @@ export async function deleteStyle(style) {
   if (style.dir.startsWith(stylesRoot + path.sep)) await fsp.rm(style.dir, { recursive: true, force: true });
 }
 
-export const stylePreviewPath = (style) => path.join(style.dir, 'preview.mp4');
+export const stylePreviewPath = (style) => style.dir ? path.join(style.dir, 'preview.mp4') : null;
 export const stylePosterPath = (style) => {
+  if (!style.dir) return null;
   const p = path.join(style.dir, 'poster.jpg');
   return fs.existsSync(p) ? p : null;
 };

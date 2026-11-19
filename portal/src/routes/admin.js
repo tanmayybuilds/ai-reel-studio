@@ -11,6 +11,7 @@ import { listMessages, markRead, threadHandlers, addSystemMessage } from '../thr
 import { chatPanel } from '../views/chat.js';
 import { listVersions, lastChangeRequest, addVersion, deliver } from '../review.js';
 import { parseDriveUrl, checkDriveAccess, DRIVE_PROBLEM } from '../drive.js';
+import { controlJob, jobHistory, recordJobEvent, recheckFootage, replaceFootage } from '../jobs.js';
 
 export const adminRoutes = Router();
 
@@ -65,13 +66,36 @@ adminRoutes.get('/admin/videos/:id', (req, res, next) => {
   });
   res.send(workspacePage(req, {
     video, client, files: filesOf(video.id), chat,
-    versions: listVersions(video.id), changeRequest: lastChangeRequest(video.id),
+    versions: listVersions(video.id), changeRequest: lastChangeRequest(video.id), history: jobHistory(video.id),
   }));
 });
 
 const adminThread = threadHandlers(adminVideo);
 adminRoutes.get('/admin/api/videos/:id/state', adminThread.state);
 adminRoutes.post('/admin/api/videos/:id/messages', adminThread.post);
+
+adminRoutes.post('/admin/videos/:id/control', (req, res) => {
+  try {
+    controlJob(Number(req.params.id), req.user.id, String(req.body.action || ''), req.body);
+    flash(req, 'success', 'Job updated. The client screen will update automatically.');
+  } catch (err) { flash(req, 'error', err.message); }
+  res.redirect(303, `/admin/videos/${req.params.id}`);
+});
+
+adminRoutes.post('/admin/videos/:id/footage', async (req, res) => {
+  const video = adminVideo(req);
+  if (!video) return res.redirect(303, '/admin/queue');
+  try {
+    if (req.body.action === 'recheck') {
+      const result = await recheckFootage(video, req.user.id);
+      flash(req, result === 'shared' ? 'success' : 'error', result === 'shared' ? 'Anonymous download access confirmed.' : DRIVE_PROBLEM[result] || DRIVE_PROBLEM.unknown);
+    } else {
+      await replaceFootage(video, req.user.id, req.body.drive_url, req.body.shared === 'yes');
+      flash(req, 'success', 'Footage link replaced and verified.');
+    }
+  } catch (err) { flash(req, 'error', err.message); }
+  res.redirect(303, `/admin/videos/${video.id}`);
+});
 
 adminRoutes.post('/admin/videos/:id/eta', (req, res) => {
   const video = adminVideo(req);
@@ -90,6 +114,7 @@ adminRoutes.post('/admin/videos/:id/eta', (req, res) => {
   }
   db.prepare('UPDATE videos SET eta_at = ?, updated_at = ? WHERE id = ?').run(eta, t, video.id);
   addSystemMessage(video.id, 'The studio updated the estimated ready time.');
+  recordJobEvent(video.id, req.user.id, 'eta', `Estimated ready time changed to ${new Date(eta).toISOString()}.`, { publicMessage: false });
   flash(req, 'success', 'New time saved. The client\u2019s countdown has updated.');
   res.redirect(303, `/admin/videos/${video.id}`);
 });
@@ -111,7 +136,7 @@ adminRoutes.post('/admin/videos/:id/versions', async (req, res) => {
   if (!video) return res.redirect(303, '/admin/queue');
   try {
     const link = await sharedDriveLink(req.body.link);
-    const v = addVersion(video, link, String(req.body.note || ''));
+    const v = addVersion(video, link, String(req.body.note || ''), req.user.id);
     flash(req, 'success', `Version ${v.number} sent. The client can review it now.`);
   } catch (err) {
     flash(req, 'error', err.message);
@@ -132,7 +157,9 @@ adminRoutes.post('/admin/videos/:id/deliver', async (req, res) => {
     } else {
       link = await sharedDriveLink(req.body.drive_url);
     }
-    deliver(video, link);
+    // Recheck the approved link too: its sharing may have changed since review.
+    if (req.body.source === 'approved') link = await sharedDriveLink(link);
+    deliver(video, link, req.user.id);
     flash(req, 'success', 'Delivered. The client can download the final now.');
   } catch (err) {
     flash(req, 'error', err.message);
@@ -145,7 +172,7 @@ async function sharedDriveLink(input) {
   const d = parseDriveUrl(input);
   if (!d.ok) throw new Error('Paste a Google Drive link (drive.google.com/\u2026).');
   const access = await checkDriveAccess(d.url);
-  if (DRIVE_PROBLEM[access]) throw new Error(DRIVE_PROBLEM[access]);
+  if (access !== 'shared') throw new Error(DRIVE_PROBLEM[access] || DRIVE_PROBLEM.unknown);
   return d.url;
 }
 

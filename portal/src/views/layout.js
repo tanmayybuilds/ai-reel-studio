@@ -55,8 +55,8 @@ export function page({ title, req, body, shell = 'app', active = '', tab = '' })
   const user = req.user;
   const isAdmin = user?.role === 'admin';
   const todo = isAdmin
-    ? db.prepare("SELECT COUNT(*) AS n FROM videos WHERE status IN ('editing','changes','exporting')").get().n
-      + db.prepare("SELECT COUNT(DISTINCT m.video_id) AS n FROM messages m JOIN videos v ON v.id = m.video_id WHERE m.read_by_admin = 0 AND v.status NOT IN ('editing','changes','exporting')").get().n
+    ? db.prepare("SELECT COUNT(*) AS n FROM videos WHERE status IN ('queued','editing','changes','exporting')").get().n
+      + db.prepare("SELECT COUNT(DISTINCT m.video_id) AS n FROM messages m JOIN videos v ON v.id = m.video_id WHERE m.read_by_admin = 0 AND v.status NOT IN ('queued','editing','changes','exporting')").get().n
     : 0;
   const nav = isAdmin
     ? [['queue', '/admin/queue', 'Queue', todo], ['clients', '/admin/clients', 'Clients'], ['styles', '/admin/styles', 'Styles'], ['emails', '/admin/emails', 'Emails']]
@@ -111,6 +111,7 @@ export function page({ title, req, body, shell = 'app', active = '', tab = '' })
 <link rel="stylesheet" href="/theme.css?v=${BUILD}">
 <script src="/js/app.js?v=${BUILD}" defer></script>
 <script src="/js/live.js?v=${BUILD}" defer></script>
+<script src="/js/drive-player.js?v=${BUILD}" defer></script>
 </head>
 <body class="shell-${shell} ${tabs.length ? 'has-tabbar' : ''}">
 ${header}

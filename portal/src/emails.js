@@ -99,7 +99,7 @@ export function adminNewVideoEmail({ video, client, files }) {
   const subject = `New video from ${client.name}: “${video.title}”`;
   const eta = video.eta_at ? new Date(video.eta_at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
   const html = layout({
-    preheader: `${client.name} sent footage. The client sees ready at ${eta}.`,
+    preheader: `${client.name} sent verified footage. Start editing from your queue.`,
     heading: 'New video to edit',
     footer: adminFooter(),
     body:
