@@ -68,12 +68,15 @@ app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(config.portalDir, 'public', 'sw.js'), { dotfiles: 'allow' });
 });
 app.get('/manifest.webmanifest', (req, res) => {
+  // The admin address installs as its own app that opens on the queue.
+  const admin = config.splitHosts && req.hostname.toLowerCase() === config.adminHost;
+  const shortName = config.portalName.length > 12 ? config.portalName.replace(/^AI\s+/i, '') : config.portalName;
   res.type('application/manifest+json').set('Cache-Control', 'no-cache').send(JSON.stringify({
-    id: '/',
-    name: config.portalName,
-    short_name: config.portalName.length > 12 ? config.portalName.replace(/^AI\s+/i, '') : config.portalName,
-    description: 'Send your footage, watch your edit, ask for changes and download the final reel.',
-    start_url: '/?source=app',
+    id: admin ? '/admin' : '/',
+    name: admin ? `${config.portalName} Admin` : config.portalName,
+    short_name: admin ? 'Studio Admin' : shortName,
+    description: admin ? 'The studio side: queue, clients, styles and emails.' : 'Send your footage, watch your edit, ask for changes and download the final reel.',
+    start_url: admin ? '/admin?source=app' : '/?source=app',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
@@ -85,7 +88,8 @@ app.get('/manifest.webmanifest', (req, res) => {
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
       { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
-    shortcuts: [{ name: 'New video', url: '/videos/new', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] }],
+    shortcuts: admin ? [{ name: 'Queue', url: '/admin/queue', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] }]
+      : [{ name: 'New video', url: '/videos/new', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] }],
   }));
 });
 
@@ -102,6 +106,20 @@ app.use(sessionMiddleware);
 app.use(csrfCheck);
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store'); // pages are private and per-user
+  next();
+});
+
+// Two addresses (SITE_URL for clients, ADMIN_SITE_URL for the studio): each side only answers on
+// its own. Any other host (the server's IP, localhost) serves both, for setup and testing.
+const CLIENT_PATHS = /^\/(dashboard|videos|account|api\/videos)(\/|$)/;
+app.use((req, res, next) => {
+  if (!config.splitHosts) return next();
+  const host = req.hostname.toLowerCase();
+  const adminPath = req.path === '/admin' || req.path.startsWith('/admin/');
+  if (host === config.siteHost && adminPath) {
+    return res.status(404).send(errorPage(req, 404, 'Page not found', 'This page doesn\u2019t exist, or you don\u2019t have access to it.'));
+  }
+  if (host === config.adminHost && CLIENT_PATHS.test(req.path)) return res.redirect(302, config.siteUrl + req.originalUrl);
   next();
 });
 
@@ -126,7 +144,7 @@ app.use((err, req, res, next) => {
 process.on('unhandledRejection', (err) => console.error('Unhandled promise rejection:', err));
 
 const server = app.listen(config.port, config.host, () => {
-  console.log(`${config.portalName} portal running at http://${config.host === '0.0.0.0' ? 'localhost' : config.host}:${config.port} (public address ${config.siteUrl})`);
+  console.log(`${config.portalName} portal running at http://${config.host === '0.0.0.0' ? 'localhost' : config.host}:${config.port} (clients: ${config.siteUrl}${config.splitHosts ? `, studio: ${config.adminUrl}` : ''})`);
   console.log(`Briefs go to ${path.join(config.studioRoot, 'Raw')}. Video files stay in Google Drive.`);
   const mail = mailStatus();
   console.log(mail.mode === 'off' ? 'Email is off: emails are saved to data/outbox/ (see Admin → Emails).' : `Email is on (${mail.mode}), sending as ${mail.sender}.`);

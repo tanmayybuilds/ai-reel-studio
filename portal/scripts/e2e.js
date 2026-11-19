@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import http from 'node:http';
 
 const portalDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4499;
@@ -451,6 +452,56 @@ async function run() {
     assert.equal(code, 1);
     assert.match(out, /ADMIN_PASSWORD/);
     assert.match(out, /SITE_URL must start with https/);
+  });
+
+  console.log('\nTwo addresses (clients and studio)');
+  await step('editor address hides admin; studio address sends clients over; each side signs in on its own', async () => {
+    const PORT2 = 4497;
+    const child = spawn(process.execPath, ['server.js'], {
+      cwd: portalDir,
+      env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: String(PORT2), HOST: '127.0.0.1',
+        SITE_URL: `http://editor.test:${PORT2}`, ADMIN_SITE_URL: `http://studio.test:${PORT2}`,
+        PORTAL_DATA_DIR: path.join(tmp, 'split-data'), STUDIO_ROOT: studio, PORTAL_NAME: 'E2E Studio',
+        ADMIN_EMAIL: ADMIN.email, ADMIN_PASSWORD: ADMIN.password, DRIVE_LINK_CHECK: 'off' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const call = (host, method, urlPath, { cookie = '', form } = {}) => new Promise((resolve, reject) => {
+      const body = form ? new URLSearchParams(form).toString() : null;
+      const r = http.request({ host: '127.0.0.1', port: PORT2, method, path: urlPath, headers: {
+        Host: `${host}:${PORT2}`, Cookie: cookie, ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) } : {}),
+      } }, (res) => {
+        let text = '';
+        res.on('data', (d) => { text += d; });
+        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, text }));
+      });
+      r.on('error', reject);
+      if (body) r.write(body);
+      r.end();
+    });
+    try {
+      for (let i = 0; i < 50; i++) { try { await call('editor.test', 'GET', '/healthz'); break; } catch { await sleep(200); } }
+      assert.equal((await call('editor.test', 'GET', '/admin/queue')).status, 404);
+      const moved = await call('studio.test', 'GET', '/dashboard');
+      assert.equal(moved.status, 302);
+      assert.equal(moved.headers.location, `http://editor.test:${PORT2}/dashboard`);
+      const manifest = JSON.parse((await call('studio.test', 'GET', '/manifest.webmanifest')).text);
+      assert.equal(manifest.start_url, '/admin?source=app');
+      assert.match(manifest.name, /Admin$/);
+      const signIn = async (host) => {
+        const page = await call(host, 'GET', '/login');
+        const cookie = page.headers['set-cookie'][0].split(';')[0];
+        const csrf = page.text.match(/name="_csrf" value="([^"]+)"/)[1];
+        return call(host, 'POST', '/login', { cookie, form: { _csrf: csrf, email: ADMIN.email, password: ADMIN.password } });
+      };
+      const refused = await signIn('editor.test');
+      assert.equal(refused.status, 403);
+      assert.match(refused.text, /Studio sign-in is at http:\/\/studio\.test/);
+      const ok = await signIn('studio.test');
+      assert.equal(ok.status, 303);
+      assert.equal(ok.headers.location, '/admin');
+    } finally {
+      child.kill();
+    }
   });
 
   console.log('\nAccess');

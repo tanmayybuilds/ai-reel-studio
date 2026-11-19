@@ -182,7 +182,10 @@ export function csrfCheck(req, res, next) {
 }
 
 function sameOrigin(url) {
-  try { return new URL(url).host === new URL(config.siteUrl).host || new URL(url).hostname === '127.0.0.1' || new URL(url).hostname === 'localhost'; } catch { return false; }
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    return h === config.siteHost || h === config.adminHost || h === '127.0.0.1' || h === 'localhost';
+  } catch { return false; }
 }
 
 /** Only allow redirects to paths on this site. */

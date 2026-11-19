@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url';
 const portalDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT || 4400);
 const siteUrl = (process.env.SITE_URL || `http://localhost:${port}`).replace(/\/+$/, '');
+// Optional separate address for the studio's admin side (e.g. https://admineditor.example.com).
+const adminUrl = (process.env.ADMIN_SITE_URL || siteUrl).replace(/\/+$/, '');
+const hostOf = (u) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ''; } };
 const accent = /^#[0-9a-f]{6}$/i.test(process.env.PORTAL_ACCENT || '') ? process.env.PORTAL_ACCENT : '#2dd4bf';
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -30,6 +33,11 @@ export const config = {
   // Containers must listen on all interfaces; on this Mac stay private by default.
   host: process.env.HOST || (isProduction ? '0.0.0.0' : '127.0.0.1'),
   siteUrl,
+  adminUrl,
+  siteHost: hostOf(siteUrl),
+  adminHost: hostOf(adminUrl),
+  // Clients on SITE_URL, the studio on ADMIN_SITE_URL: each side only answers on its own address.
+  splitHosts: hostOf(adminUrl) !== hostOf(siteUrl),
   secureCookies: siteUrl.startsWith('https://'),
   portalName: process.env.PORTAL_NAME || 'AI Reel Studio',
   accent,
@@ -68,5 +76,6 @@ export function configProblems() {
   if (PLACEHOLDER_PASSWORDS.test(config.admin.password)) problems.push('ADMIN_PASSWORD is still a placeholder. Choose a real password.');
   if (config.isProduction && !config.secureCookies) problems.push('SITE_URL must start with https:// in production.');
   if (config.isProduction && /localhost|127\.0\.0\.1/.test(config.siteUrl)) problems.push('SITE_URL must be the public address, e.g. https://portal.yourdomain.com');
+  if (config.adminUrl.startsWith('https://') !== config.secureCookies) problems.push('ADMIN_SITE_URL and SITE_URL must both be https:// (or both http:// locally).');
   return problems;
 }

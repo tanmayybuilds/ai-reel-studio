@@ -4,6 +4,7 @@ import { config } from './config.js';
 
 const A = config.accent;
 const link = (p) => `${config.siteUrl}${p}`;
+const adminLink = (p) => `${config.adminUrl}${p}`;
 const first = (name) => String(name || '').split(' ')[0] || 'there';
 
 function button(href, label, primary = true) {
@@ -94,7 +95,7 @@ export function deliveredEmail({ video, client, final }) {
 const adminFooter = () => `Studio alert from your ${esc(config.portalName)} portal.`;
 
 export function adminNewVideoEmail({ video, client, files }) {
-  const url = link(`/admin/videos/${video.id}`);
+  const url = adminLink(`/admin/videos/${video.id}`);
   const raw = files.filter((f) => f.kind === 'raw');
   const subject = `New video from ${client.name}: “${video.title}”`;
   const eta = video.eta_at ? new Date(video.eta_at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
@@ -124,7 +125,7 @@ export function adminNewVideoEmail({ video, client, files }) {
 }
 
 export function adminChangesEmail({ video, client, versionNumber, request }) {
-  const url = link(`/admin/videos/${video.id}`);
+  const url = adminLink(`/admin/videos/${video.id}`);
   const subject = `${first(client.name)} asked for changes on “${video.title}” (v${versionNumber})`;
   const html = layout({
     preheader: request.slice(0, 120),
@@ -137,7 +138,7 @@ export function adminChangesEmail({ video, client, versionNumber, request }) {
 }
 
 export function adminApprovedEmail({ video, client, versionNumber }) {
-  const url = link(`/admin/videos/${video.id}`);
+  const url = adminLink(`/admin/videos/${video.id}`);
   const subject = `✅ ${first(client.name)} approved “${video.title}”. Send the final`;
   const html = layout({
     preheader: `v${versionNumber} approved. Deliver the final file.`,
@@ -156,7 +157,7 @@ export function testEmail() {
     heading: 'Email is working ✅',
     footer: adminFooter(),
     body: p('If you can read this, clients will get their “Your video is ready” emails.') +
-      `<div style="margin:18px 0 0">${button(link('/admin/queue'), 'Open the queue')}</div>`,
+      `<div style="margin:18px 0 0">${button(adminLink('/admin/queue'), 'Open the queue')}</div>`,
   });
-  return { subject, html, text: `Email is working. Clients will get their "Your video is ready" emails.\n${link('/admin/queue')}\n` };
+  return { subject, html, text: `Email is working. Clients will get their "Your video is ready" emails.\n${adminLink('/admin/queue')}\n` };
 }

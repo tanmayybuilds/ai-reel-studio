@@ -4,6 +4,16 @@ import {
   verifyPassword, burnPasswordCheck, normEmail, signIn, signOut, safeNext, homeFor, loginLimiter,
 } from '../auth.js';
 import { loginPage } from '../views/auth.js';
+import { config } from '../config.js';
+
+/** With split addresses: the admin only signs in on ADMIN_SITE_URL, clients only on SITE_URL. */
+function wrongSide(req, user) {
+  if (!config.splitHosts) return null;
+  const host = req.hostname.toLowerCase();
+  if (user.role === 'admin' && host === config.siteHost) return `Studio sign-in is at ${config.adminUrl}/login`;
+  if (user.role === 'client' && host === config.adminHost) return `Client sign-in is at ${config.siteUrl}/login`;
+  return null;
+}
 
 export const authRoutes = Router();
 
@@ -30,6 +40,8 @@ authRoutes.post('/login', async (req, res) => {
     return again(401, 'That email and password don’t match. Check for typos and try again.');
   }
   if (user.disabled) return again(403, 'This login is turned off. Please contact your editor.');
+  const elsewhere = wrongSide(req, user);
+  if (elsewhere) return again(403, elsewhere);
 
   loginLimiter.reset(req.ip, email);
   signIn(req, res, user);
