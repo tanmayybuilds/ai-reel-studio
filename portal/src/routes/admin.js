@@ -7,7 +7,7 @@ import { execFile } from 'node:child_process';
 import { config } from '../config.js';
 import { clientsPage, clientEditPage, queuePage, queueList, workspacePage, QUEUE_FILTERS } from '../views/admin.js';
 import { filesOf } from '../videos.js';
-import { listMessages, markRead, threadHandlers, addSystemMessage } from '../thread.js';
+import { listMessages, markRead, threadHandlers, addSystemMessage, unreadForAdmin } from '../thread.js';
 import { chatPanel } from '../views/chat.js';
 import { listVersions, lastChangeRequest, addVersion, deliver } from '../review.js';
 import { parseDriveUrl, checkDriveAccess, DRIVE_PROBLEM } from '../drive.js';
@@ -53,10 +53,13 @@ adminRoutes.get('/admin/videos/:id', (req, res, next) => {
   if (!video) return next();
   const client = db.prepare('SELECT * FROM users WHERE id = ?').get(video.client_id);
   const messages = listMessages(video.id, req.user);
+  const unread = unreadForAdmin(video.id); // before marking read, for the chat button's badge
   markRead(video.id, req.user);
   const chat = chatPanel({
     req,
     messages,
+    unread,
+    subtitle: video.title,
     stateUrl: `/admin/api/videos/${video.id}/state`,
     postUrl: `/admin/api/videos/${video.id}/messages`,
     title: `Chat with ${client.name.split(' ')[0]}`,

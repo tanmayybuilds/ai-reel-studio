@@ -28,6 +28,15 @@ function fileUrl(link, preview) {
 export const drivePreviewUrl = (link) => fileUrl(link, true);
 export const driveDownloadUrl = (link) => fileUrl(link, false);
 
+/** Direct, seekable video stream of a shared Drive file, for the phone's own <video> player. */
+export function driveStreamUrl(link) {
+  const d = parseDriveUrl(link);
+  if (!d.ok || d.kind !== 'file') return null;
+  const u = new URL(`https://drive.usercontent.google.com/download?id=${d.id}&export=download`);
+  if (d.resourceKey) u.searchParams.set('resourcekey', d.resourceKey);
+  return u.href;
+}
+
 export const DRIVE_PROBLEM = {
   'not-shared': 'That Drive link requires access. Set Share → General access → Anyone with the link, then try again.',
   missing: 'That Drive file or folder was not found. Check the link and try again.',
@@ -37,7 +46,7 @@ export const DRIVE_PROBLEM = {
   'too-large': 'This folder is too large to verify at once. Share a smaller folder (up to 50 files) or a direct video file link.',
 };
 
-function safeGoogleUrl(value) {
+export function safeGoogleUrl(value) {
   const u = new URL(value);
   return u.protocol === 'https:' && !u.username && !u.password && !u.port && (
     DRIVE_HOSTS.has(u.hostname) || u.hostname === 'drive.usercontent.google.com' ||

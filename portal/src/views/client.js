@@ -247,11 +247,16 @@ export function videoPage(req, { video, files, chat }) {
     <div class="work ${working ? 'work-editing' : ''}" data-live data-status="${video.status}" data-stage="${video.editing_stage}">
       ${working ? editingStage() : ''}
       <div class="work-side">
-        ${!working ? html`<section class="card eta-card">
-          <p class="eyebrow">${video.status === 'queued' ? 'Your video is in the queue' : video.status === 'changes' ? 'Your changes have been received' : video.status === 'on_hold' ? 'Your job is on hold' : 'This job was cancelled'}</p>
-          <h2>${['queued', 'changes'].includes(video.status) ? 'Your editor will pick it up.' : video.status === 'on_hold' ? 'Waiting for the next step' : 'Your files and chat are kept'}</h2>
-          <p class="muted">${video.status_note || (['queued', 'changes'].includes(video.status) ? 'Your editor will start the job and set an estimated ready time. You can close this page and return from your dashboard.' : 'Message the studio below if you need help.')}</p>
-        </section>` : ''}
+        ${!working ? (video.status === 'queued' ? html`<section class="card eta-card queued-card">
+          <p class="eyebrow"><span class="live-dot"></span>Checking your footage</p>
+          <h2>We're checking it for sensitive content</h2>
+          <p class="muted">${video.status_note || 'If nothing sensitive is found, we’ll start editing and let you know right here and by email. You can close the app: your video will be waiting in your dashboard.'}</p>
+          <div class="scan-bar" aria-hidden="true"><span></span></div>
+        </section>` : html`<section class="card eta-card">
+          <p class="eyebrow">${video.status === 'changes' ? 'Your changes have been received' : video.status === 'on_hold' ? 'Your job is on hold' : 'This job was cancelled'}</p>
+          <h2>${video.status === 'changes' ? 'Your editor will pick it up.' : video.status === 'on_hold' ? 'Waiting for the next step' : 'Your files and chat are kept'}</h2>
+          <p class="muted">${video.status_note || (video.status === 'changes' ? 'Your editor will start on your changes and set an estimated ready time. You can close this page and return from your dashboard.' : 'Tap the chat button to message the studio if you need help.')}</p>
+        </section>`) : ''}
         ${working ? html`
         <section class="card eta-card" data-eta-card data-eta="${video.eta_at}" data-start="${video.submitted_at}">
           <p class="eyebrow"><span class="live-dot"></span>${working.eyebrow}</p>
@@ -281,12 +286,12 @@ function versionChips(video, versions, showing) {
  * The video, played inside the page: Google Drive's own player for a Drive file link, our player for
  * a stored file (older videos), or a button when the link is a folder (Drive can't embed folders).
  */
-function player(video, { link, fileId }) {
+function player(video, { link, fileId, stream }) {
   const preview = link && drivePreviewUrl(link);
   if (preview) {
     return html`
     <div class="player-phone player-drive">
-      ${drivePlayer(link, 'Your video')}
+      ${drivePlayer(link, 'Your video', stream)}
     </div>
     <p class="player-alt muted small">Not playing? ${ext(link, 'Open it in Google Drive', 'linkish-a')}</p>`;
   }
@@ -319,7 +324,7 @@ export function reviewPage(req, { video, files, versions, showing, chat }) {
     ${vpHead(video)}
     <div class="work" data-live data-status="${video.status}">
       <div class="work-stage">
-        ${player(video, { link: showing.link, fileId: showing.file_id })}
+        ${player(video, { link: showing.link, fileId: showing.file_id, stream: `/videos/${video.id}/play/${showing.number}` })}
         ${versionChips(video, versions, showing)}
       </div>
       <div class="work-side">
@@ -360,7 +365,9 @@ export function deliveredPage(req, { video, files, versions, showing, final, cha
   const finalLink = video.final_drive_url;
   const download = finalLink && driveDownloadUrl(finalLink);
   const isFolder = finalLink && parseDriveUrl(finalLink).kind === 'folder';
-  const shown = showing ? { link: showing.link, fileId: showing.file_id } : (finalLink ? { link: finalLink } : { fileId: final?.id });
+  const shown = showing
+    ? { link: showing.link, fileId: showing.file_id, stream: `/videos/${video.id}/play/${showing.number}` }
+    : (finalLink ? { link: finalLink, stream: `/videos/${video.id}/play/final` } : { fileId: final?.id });
   return page({
     title: video.title,
     req,

@@ -110,6 +110,40 @@
     const toBottom = () => { list.scrollTop = list.scrollHeight; };
     toBottom();
 
+    // Floating chat: a button opens this project's chat as a sheet; new messages badge the button.
+    const sheet = chat.closest('[data-chat-sheet]');
+    const fab = sheet ? document.querySelector('[data-chat-open]') : null;
+    const badge = fab?.querySelector('[data-chat-badge]');
+    let unread = Number(badge?.textContent) || 0;
+    const isOpen = () => !sheet || !sheet.hidden;
+    const paintBadge = () => {
+      if (!badge) return;
+      badge.textContent = unread ? String(unread) : '';
+      badge.hidden = !unread;
+      fab.setAttribute('aria-label', unread ? `Messages (${unread} new)` : 'Messages');
+    };
+    const openSheet = () => {
+      sheet.hidden = false;
+      document.body.classList.add('chat-open');
+      fab.setAttribute('aria-expanded', 'true');
+      unread = 0;
+      paintBadge();
+      toBottom();
+      box.focus({ preventScroll: true });
+    };
+    const closeSheet = () => {
+      sheet.hidden = true;
+      document.body.classList.remove('chat-open');
+      fab.setAttribute('aria-expanded', 'false');
+      fab.focus({ preventScroll: true });
+    };
+    if (sheet && fab) {
+      fab.addEventListener('click', () => (isOpen() ? closeSheet() : openSheet()));
+      sheet.querySelectorAll('[data-chat-close]').forEach((b) => b.addEventListener('click', closeSheet));
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) closeSheet(); });
+      if (location.hash === '#chat') openSheet();
+    }
+
     function add(m, { fromPoll } = {}) {
       if (seen.has(String(m.id))) return;
       seen.add(String(m.id));
@@ -118,6 +152,7 @@
       list.insertBefore(msgEl(m), empty);
       if (m.kind !== 'system' && empty) empty.hidden = true;
       if (stick) toBottom();
+      if (fromPoll && !m.mine && m.kind !== 'system' && !isOpen()) { unread += 1; paintBadge(); }
       if (fromPoll && !m.mine && m.kind !== 'system' && document.hidden) {
         unseen += 1;
         document.title = `(${unseen}) New message · ${baseTitle}`;
@@ -209,6 +244,29 @@
     setTimeout(refresh, every);
   }
 
+  // ---------- studio bell (admin) ----------
+  function setupBell(bell) {
+    const count = bell.querySelector('[data-bell-count]');
+    let last = Number(count.textContent) || 0;
+    async function check() {
+      if (!document.hidden) {
+        try {
+          const res = await fetch('/admin/api/notifications', { headers: { Accept: 'application/json' } });
+          if (res.ok) {
+            const d = await res.json();
+            count.textContent = d.unread ? String(d.unread) : '';
+            count.hidden = !d.unread;
+            bell.setAttribute('aria-label', d.unread ? `Notifications (${d.unread} new)` : 'Notifications');
+            if (d.unread > last && d.latest) window.portalToast?.(d.latest.title);
+            last = d.unread;
+          }
+        } catch { /* offline */ }
+      }
+      setTimeout(check, 20000);
+    }
+    setTimeout(check, 20000);
+  }
+
   // ---------- boot ----------
 
   paintTimes();
@@ -216,4 +274,5 @@
   if (document.querySelector('[data-eta-card], [data-due], [data-refresh]')) setInterval(tick, 1000);
   document.querySelectorAll('[data-chat]').forEach(setupChat);
   document.querySelectorAll('[data-refresh]').forEach(setupRefresh);
+  document.querySelectorAll('[data-bell]').forEach(setupBell);
 })();

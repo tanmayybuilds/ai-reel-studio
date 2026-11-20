@@ -12,6 +12,7 @@ import { listMessages, markRead, threadHandlers, unreadForClient } from '../thre
 import { chatPanel } from '../views/chat.js';
 import { listStyles, getStyle } from '../styles.js';
 import { replaceFootage } from '../jobs.js';
+import { streamDriveVideo } from '../drive-stream.js';
 
 export const clientRoutes = Router();
 
@@ -98,10 +99,14 @@ clientRoutes.get('/videos/:id', requireClient, (req, res, next) => {
   if (!video) return next(); // 404
   if (video.status === 'draft') return next();
   const messages = listMessages(video.id, req.user);
+  const unread = unreadForClient(video.id); // before marking read, for the chat button's badge
   markRead(video.id, req.user);
   const chat = chatPanel({
     req,
     messages,
+    unread,
+    title: 'Messages',
+    subtitle: video.title,
     stateUrl: `/api/videos/${video.id}/state`,
     postUrl: `/api/videos/${video.id}/messages`,
     hint: 'Questions or extra notes? The studio sees these right away.',
@@ -132,6 +137,17 @@ function ownedMediaFile(req) {
   return db.prepare("SELECT * FROM files WHERE id = ? AND video_id = ? AND kind IN ('version','final') AND complete = 1")
     .get(Number(req.params.fileId), video.id) || null;
 }
+// The client's edits and final, played in the phone's own player (see src/drive-stream.js).
+clientRoutes.get('/videos/:id/play/:which', requireClient, (req, res, next) => {
+  const video = ownedVideo(req);
+  if (!video) return next();
+  const link = req.params.which === 'final'
+    ? video.final_drive_url
+    : listVersions(video.id).find((v) => v.number === Number(req.params.which))?.link;
+  if (!link) return next();
+  return streamDriveVideo(req, res, link);
+});
+
 clientRoutes.get('/videos/:id/media/:fileId', requireClient, (req, res, next) => {
   const file = ownedMediaFile(req);
   if (!file || !fs.existsSync(file.stored_path)) return next();

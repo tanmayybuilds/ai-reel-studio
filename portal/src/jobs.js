@@ -2,6 +2,7 @@ import { db, now, tx } from './db.js';
 import { config } from './config.js';
 import { addSystemMessage } from './thread.js';
 import { checkDriveAccess, parseDriveUrl, DRIVE_PROBLEM } from './drive.js';
+import { alertStudio } from './studio-alerts.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -32,6 +33,8 @@ export async function replaceFootage(video, actorId, input, shared) {
     if (r.changes !== 1) throw conflict('The footage or job changed while we checked it. Reload and try again.');
     recordJobEvent(video.id, actorId, 'footage', `Footage link replaced and verified: ${d.url}`);
   });
+  const actor = db.prepare('SELECT role, name FROM users WHERE id = ?').get(actorId);
+  if (actor?.role === 'client') alertStudio('footage', video.id, `${actor.name.split(' ')[0]} replaced the footage link`, `\u201c${video.title}\u201d: new link verified.`);
   // Preserve the original submission and append the current link for local editing sessions.
   const brief = path.resolve(config.studioRoot, video.folder, 'brief.md');
   if (brief.startsWith(config.studioRoot + path.sep) && fs.existsSync(brief)) {

@@ -25,6 +25,7 @@ export const icon = {
   send: raw('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12 20 4.5 15.5 20l-3.2-6.3z M12.3 13.7 20 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'),
   folder: raw('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'),
   download: raw('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M4 17v1.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'),
+  bell: raw('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2H4.5zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>'),
   mail: raw('<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'),
   chat: raw('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'),
   home: raw('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-5h-6v5H5.5A1.5 1.5 0 0 1 4 19z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'),
@@ -58,6 +59,7 @@ export function page({ title, req, body, shell = 'app', active = '', tab = '' })
     ? db.prepare("SELECT COUNT(*) AS n FROM videos WHERE status IN ('queued','editing','changes','exporting')").get().n
       + db.prepare("SELECT COUNT(DISTINCT m.video_id) AS n FROM messages m JOIN videos v ON v.id = m.video_id WHERE m.read_by_admin = 0 AND v.status NOT IN ('queued','editing','changes','exporting')").get().n
     : 0;
+  const bell = isAdmin ? db.prepare('SELECT COUNT(*) AS n FROM notifications WHERE read_at IS NULL').get().n : 0;
   const nav = isAdmin
     ? [['queue', '/admin/queue', 'Queue', todo], ['clients', '/admin/clients', 'Clients'], ['styles', '/admin/styles', 'Styles'], ['emails', '/admin/emails', 'Emails']]
     : [];
@@ -77,10 +79,12 @@ export function page({ title, req, body, shell = 'app', active = '', tab = '' })
     </nav>` : '';
 
   const header = shell === 'app' && user ? html`
-    <header class="topbar">
+    <header class="topbar ${isAdmin ? 'topbar-admin' : ''}">
       <a class="brand" href="${isAdmin ? '/admin' : '/dashboard'}">${logoMark}<span>${config.portalName}</span>${isAdmin ? html`<span class="pill pill-admin">Admin</span>` : ''}</a>
       ${nav.length ? html`<nav class="nav">${nav.map(([key, href, label, count]) => html`<a href="${href}" class="${key === active ? 'on' : ''}">${label}${count ? html`<span class="nav-count" title="${count} to do">${count}</span>` : ''}</a>`)}</nav>` : ''}
       <div class="who">
+        ${isAdmin ? html`<a class="bell ${active === 'notifications' ? 'on' : ''}" href="/admin/notifications" data-bell aria-label="Notifications${bell ? ` (${bell} new)` : ''}">
+          ${icon.bell}<span class="bell-count" data-bell-count ${bell ? '' : 'hidden'}>${bell || ''}</span></a>` : ''}
         ${isAdmin ? html`<span class="who-name">${user.name}</span>` : html`<a class="who-link" href="/account" title="Your account">${user.name}</a>`}
         <form method="post" action="/logout">
           <input type="hidden" name="_csrf" value="${req.csrf}">

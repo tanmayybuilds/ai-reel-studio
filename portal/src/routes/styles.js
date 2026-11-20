@@ -7,6 +7,7 @@ import {
   stylePreviewPath, stylePosterPath, MAX_STYLES, createDriveStyle,
 } from '../styles.js';
 import { stylesPage } from '../views/styles.js';
+import { streamDriveVideo } from '../drive-stream.js';
 import { parseDriveUrl, checkDriveAccess, DRIVE_PROBLEM, drivePreviewUrl } from '../drive.js';
 
 export const styleRoutes = Router();
@@ -19,6 +20,11 @@ function styleForViewer(req) {
   if (!style || (!style.active && req.user.role !== 'admin')) return null;
   return style;
 }
+styleRoutes.get('/styles/:id/play', (req, res, next) => {
+  const style = styleForViewer(req);
+  if (!style?.drive_url) return next();
+  return streamDriveVideo(req, res, style.drive_url);
+});
 styleRoutes.get('/styles/:id/preview.mp4', (req, res, next) => {
   const style = styleForViewer(req);
   if (!style) return next();

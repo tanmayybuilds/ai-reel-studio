@@ -189,7 +189,8 @@ async function run() {
   });
   await step('client sees queued until the admin explicitly starts editing', async () => {
     const { text } = await client.get(`/videos/${videoId}`);
-    assert.match(text, /Your video is in the queue/);
+    assert.match(text, /checking it for sensitive content/);
+    assert.match(text, /If nothing sensitive is found, we\u2019ll start editing/);
     assert.doesNotMatch(text, /data-eta-card data-eta="\d+"/);
     assert.equal((await client.api('GET', `/api/videos/${videoId}/state`)).data.eta_at, null);
   });
@@ -263,6 +264,26 @@ async function run() {
     const back = await client.api('GET', `/api/videos/${videoId}/state?after=0`);
     assert.ok(back.data.messages.some((m) => m.body === 'On it!' && m.author === 'E2E Studio'));
   });
+  await step('the studio is notified of new projects and client messages (bell + list)', async () => {
+    const n = await admin.api('GET', '/admin/api/notifications');
+    assert.ok(n.data.unread >= 2);
+    assert.match(n.data.latest.title, /Priya sent a message/);
+    const page = await admin.get('/admin/notifications');
+    assert.match(page.text, /New project from Priya Sharma/);
+    assert.match(page.text, /data-push-card data-key="[A-Za-z0-9_-]{60,}"/);
+    assert.match(page.text, /data-bell-count/);
+    const id = page.text.match(/\/admin\/notifications\/(\d+)\/open/)[1];
+    const open = await admin.req('GET', `/admin/notifications/${id}/open`);
+    assert.match(open.headers.get('location'), new RegExp(`/admin/videos/${videoId}#chat`));
+    assert.equal((await client.api('GET', '/admin/api/notifications')).res.status, 404);
+    assert.equal((await client.req('GET', '/admin/notifications')).status, 404);
+    assert.equal((await client.api('POST', '/admin/api/push/subscribe', { subscription: {} })).res.status, 404);
+  });
+  await step('chat is a floating button per project', async () => {
+    const { text } = await client.get(`/videos/${videoId}`);
+    assert.match(text, /class="chat-fab"/);
+    assert.match(text, /data-chat-sheet hidden/);
+  });
   await step('admin adds 30 minutes and the client sees the new time', async () => {
     const before = (await client.api('GET', `/api/videos/${videoId}/state`)).data.eta_at;
     await admin.get(`/admin/videos/${videoId}`);
@@ -297,11 +318,15 @@ async function run() {
   });
   await step('Drive player loads on demand and offers retry and direct Drive access', async () => {
     const { text } = await client.get(`/videos/${videoId}`);
-    assert.match(text, /data-drive-play/);
+    assert.match(text, new RegExp(`<video src="/videos/${videoId}/play/1"`));
     assert.match(text, /data-drive-retry/);
     assert.doesNotMatch(text, /<iframe src=/);
     assert.match(text, /Open it in Google Drive/);
     assert.match(text, /\/js\/drive-player.js/);
+  });
+  await step('the video stream is only for the owner', async () => {
+    assert.equal((await other.req('GET', `/videos/${videoId}/play/1`)).status, 404);
+    assert.equal((await client.req('GET', `/videos/${videoId}/play/99`)).status, 404);
   });
   await step('client asks for changes; admin sees the request', async () => {
     await client.get(`/videos/${videoId}`);

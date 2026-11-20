@@ -7,10 +7,12 @@ fs.mkdirSync(config.dataDir, { recursive: true });
 
 export const db = new DatabaseSync(path.join(config.dataDir, 'portal.db'));
 
+// Wait for a lock before anything else, so a second process (or a deploy overlapping a restart)
+// waits its turn instead of failing at start-up with "database is locked".
+db.exec('PRAGMA busy_timeout = 10000;');
 db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA foreign_keys = ON;
-  PRAGMA busy_timeout = 5000;
 
   CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY,
@@ -132,6 +134,29 @@ db.exec(`
     size       INTEGER NOT NULL,
     received   INTEGER NOT NULL DEFAULT 0,
     path       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+`);
+
+// Studio notifications (new project, client message, changes, approval…) and the devices that get
+// them as phone notifications (Web Push).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id         INTEGER PRIMARY KEY,
+    kind       TEXT NOT NULL,
+    video_id   INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    title      TEXT NOT NULL,
+    body       TEXT,
+    read_at    INTEGER,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS notifications_unread ON notifications(read_at, id);
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id         INTEGER PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint   TEXT NOT NULL UNIQUE,
+    keys       TEXT NOT NULL,
+    user_agent TEXT,
     created_at INTEGER NOT NULL
   );
 `);

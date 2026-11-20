@@ -1,6 +1,7 @@
 // Chat thread + live state for one video, shared by the client page and the admin workspace.
 import { db, now } from './db.js';
 import { config } from './config.js';
+import { alertStudio } from './studio-alerts.js';
 
 export const MAX_MESSAGE = 4000;
 
@@ -78,6 +79,7 @@ export function threadHandlers(loadVideo) {
       if (!body) return res.status(400).json({ error: 'Type a message first.' });
       if (body.length > MAX_MESSAGE) return res.status(400).json({ error: `Messages can be up to ${MAX_MESSAGE} characters.` });
       const m = addMessage(video.id, req.user, body);
+      if (req.user.role === 'client') alertStudio('message', video.id, `${req.user.name.split(' ')[0]} sent a message`, `\u201c${video.title}\u201d: ${body}`);
       res.status(201).json(toPublic(m, req.user));
     },
   };

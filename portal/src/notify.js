@@ -2,6 +2,7 @@
 import { db } from './db.js';
 import { config } from './config.js';
 import { sendMail } from './mailer.js';
+import { alertStudio } from './studio-alerts.js';
 import {
   versionReadyEmail, deliveredEmail, adminNewVideoEmail, adminChangesEmail, adminApprovedEmail,
 } from './emails.js';
@@ -35,16 +36,22 @@ export const notify = {
   newVideo(videoId) {
     const { video, client } = load(videoId);
     const files = db.prepare('SELECT * FROM files WHERE video_id = ? AND complete = 1').all(videoId);
-    if (video) toStudio(video, 'admin-new', adminNewVideoEmail({ video, client, files }));
+    if (!video) return;
+    alertStudio('new-video', video.id, `New project from ${client.name}`, `\u201c${video.title}\u201d. ${video.style_name ? `Style: ${video.style_name}.` : 'Reference reel shared.'} ${video.notes || ''}`);
+    toStudio(video, 'admin-new', adminNewVideoEmail({ video, client, files }));
   },
   /** Studio: the client asked for changes. */
   changes(videoId, versionNumber, request) {
     const { video, client } = load(videoId);
-    if (video) toStudio(video, 'admin-changes', adminChangesEmail({ video, client, versionNumber, request }));
+    if (!video) return;
+    alertStudio('changes', video.id, `${client.name.split(' ')[0]} asked for changes on v${versionNumber}`, `\u201c${video.title}\u201d: ${request}`);
+    toStudio(video, 'admin-changes', adminChangesEmail({ video, client, versionNumber, request }));
   },
   /** Studio: the client approved a version for export. */
   approved(videoId, versionNumber) {
     const { video, client } = load(videoId);
-    if (video) toStudio(video, 'admin-approved', adminApprovedEmail({ video, client, versionNumber }));
+    if (!video) return;
+    alertStudio('approved', video.id, `${client.name.split(' ')[0]} approved v${versionNumber}`, `\u201c${video.title}\u201d is ready for the final.`);
+    toStudio(video, 'admin-approved', adminApprovedEmail({ video, client, versionNumber }));
   },
 };

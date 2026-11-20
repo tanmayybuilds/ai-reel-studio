@@ -9,6 +9,7 @@ import { clientRoutes } from './src/routes/client.js';
 import { styleRoutes } from './src/routes/styles.js';
 import { emailRoutes } from './src/routes/emails.js';
 import { accountRoutes } from './src/routes/account.js';
+import { notificationRoutes } from './src/routes/notifications.js';
 import { mailStatus } from './src/mailer.js';
 import { runMaintenance } from './src/maintenance.js';
 import { errorPage } from './src/views/layout.js';
@@ -37,7 +38,7 @@ app.use((req, res, next) => {
   res.set({
     'Content-Security-Policy':
       "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self'; script-src 'self'; " +
-      "connect-src 'self'; frame-src https://drive.google.com https://docs.google.com; worker-src 'self'; manifest-src 'self'; " +
+      "connect-src 'self'; frame-src https://drive.google.com https://docs.google.com https://accounts.google.com https://*.google.com https://*.googleusercontent.com; worker-src 'self'; manifest-src 'self'; " +
       "frame-ancestors 'none'; form-action 'self'; base-uri 'none'; object-src 'none'",
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'same-origin',
@@ -126,6 +127,7 @@ app.use((req, res, next) => {
 app.use(authRoutes);
 app.use(accountRoutes);
 app.use(adminRoutes);
+app.use(notificationRoutes);
 app.use(clientRoutes);
 app.use(styleRoutes);
 app.use(emailRoutes);

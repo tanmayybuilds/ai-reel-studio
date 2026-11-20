@@ -4,7 +4,7 @@ import { MAX_STYLES } from '../styles.js';
 import { drivePlayer } from './drive-player.js';
 
 const poster = (s) => (s.dir ? `/styles/${s.id}/poster.jpg` : '');
-const preview = (s) => s.drive_url ? drivePlayer(s.drive_url, `${s.name} sample`)
+const preview = (s) => s.drive_url ? drivePlayer(s.drive_url, `${s.name} sample`, `/styles/${s.id}/play`)
   : html`<video src="/styles/${s.id}/preview.mp4" poster="${poster(s)}" controls muted playsinline preload="none" aria-label="${s.name} sample"></video>`;
 
 export function stylesPage(req, { styles, active }) {

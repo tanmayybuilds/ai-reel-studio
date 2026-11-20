@@ -2,7 +2,7 @@
 // - Pages always come from the network (they're private and live), with an offline page as fallback.
 // - CSS, JS and icons are cached so the app opens instantly; they refresh in the background.
 // - Nothing private is ever cached: no pages, no API answers, no videos.
-const VERSION = 'reel-portal-v1';
+const VERSION = 'reel-portal-v2';
 const SHELL = ['/offline.html', '/css/offline.css', '/favicon.svg', '/icons/icon-192.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
@@ -41,4 +41,29 @@ self.addEventListener('fetch', (event) => {
       }),
     );
   }
+});
+
+// ---------- phone notifications for the studio (Web Push) ----------
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'Studio update', body: event.data?.text() || '' }; }
+  event.waitUntil(self.registration.showNotification(data.title || 'Studio update', {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: data.tag || undefined,
+    renotify: !!data.tag,
+    data: { url: data.url || '/admin/notifications' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || '/admin/notifications', self.location.origin).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const same = wins.find((w) => new URL(w.url).origin === self.location.origin);
+    if (same) { await same.focus(); return same.navigate(url); }
+    return self.clients.openWindow(url);
+  })());
 });

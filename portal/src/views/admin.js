@@ -252,7 +252,7 @@ export function workspacePage(req, { video, client, files, chat, versions = [], 
           ${history.length ? html`<ol class="job-history">${history.map((e) => html`<li><strong>${e.actor || 'Studio'}</strong> · <time data-ts="${e.created_at}">${clockTime(e.created_at)}</time><p>${e.detail}</p></li>`)}</ol>` : html`<p class="muted small">New actions will appear here. Earlier chat and versions are kept.</p>`}
         </section>
       </div>
-      <div class="ws-side">${chat}</div>
+      ${chat}
     </div>`,
   });
 }
