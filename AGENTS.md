@@ -116,6 +116,7 @@ The workflow lives in two skills under `.claude/skills/`. Claude Code loads them
 | --- | --- |
 | `.claude/skills/talking-head-reel/SKILL.md` | The house style: full-frame talking head with the real room lightly blurred (or a cutout on a dark set), two-tier word-timed captions, punch-in camera, motion graphics on spoken words, layered SFX. A storyboard dashboard with Approve, Reject and Feedback on every beat. |
 | `.claude/skills/podcast-window-reel/SKILL.md` | The "podcast window" look: a black 9:16 canvas, fixed headline, one video window, serif hero words behind the speaker, fire light-leak transitions, slow-push cards. |
+| `.claude/skills/property-tour-reel/SKILL.md` | Property walkthroughs from photos and clips plus listing facts. Two halves: a fast, beat-cut first half with the camera always moving, then a slow detail half with a voiceover, labels, stats and an agent card. The user only receives the finished video; no editor is shown. One-time setup: `scripts/install_models.py`. |
 
 ### Rules that apply to every edit
 

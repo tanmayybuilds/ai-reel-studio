@@ -29,6 +29,6 @@
   "approvals": {"storyboardBeforeRender": true, "finalBeforeApproved": true},
   "loudness": -14,
   "whisperModel": "ggml-small-q5_1.bin",
-  "optional": {"remotion": false, "baseModel": false},
+  "optional": {"remotion": true, "baseModel": true},
   "notes": "Reviews often come in chat rather than reviews.json, and notes on approved beats still count. Wants reels to go viral: fast, punchy, with the richest graphics on the hook, the product reveal, the link and the CTA. Also edits client videos, often in the podcast-window style."
 }

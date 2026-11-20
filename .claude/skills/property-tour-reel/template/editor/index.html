@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tour Editor</title>
+<link rel="stylesheet" href="overlay.css">
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot"></span><span id="title">Property tour</span></div>
+  <div class="transport">
+    <button id="toStart" title="Start (Home)">⏮</button>
+    <button id="prevShot" title="Previous shot ([)">◀︎</button>
+    <button id="play" class="primary" title="Play / pause (Space)">▶︎ Play</button>
+    <button id="nextShot" title="Next shot (])">▶︎▶︎</button>
+    <span id="clock" class="clock">0:00.00 / 0:00.00</span>
+  </div>
+  <div class="actions">
+    <label class="toggle"><input type="checkbox" id="audioOn" checked> Sound</label>
+    <label class="toggle"><input type="checkbox" id="guidesOn"> Safe zones</label>
+    <button id="undo" title="Undo (⌘Z)">↶</button>
+    <button id="redo" title="Redo (⇧⌘Z)">↷</button>
+    <span id="status" class="status">Saved</span>
+    <button id="save" class="primary" title="Save (⌘S)">Save</button>
+  </div>
+</header>
+<main class="layout">
+  <aside class="shots">
+    <div class="pane-head"><span>Shots</span><span id="shotCount" class="muted"></span></div>
+    <ol id="shotList"></ol>
+    <div class="pane-foot">
+      <button id="addShot">+ Add shot</button>
+      <button id="dupShot">Duplicate</button>
+      <button id="delShot" class="danger">Delete</button>
+    </div>
+  </aside>
+  <section class="viewer">
+    <div id="stageWrap" class="stage-wrap">
+      <div class="stage" id="stage">
+        <canvas id="gl"></canvas>
+        <div class="overlay" id="overlay"></div>
+        <div class="guides" id="guides">
+          <div style="left:0;top:0;width:1080px;height:220px"></div>
+          <div style="left:0;top:1490px;width:1080px;height:430px"></div>
+          <div style="left:950px;top:1050px;width:130px;height:740px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="hint" id="hint">Pause on a photo shot, then drag the picture to pan and scroll to zoom. This sets a camera keyframe at the playhead. Hold ⇧ while scrolling to tilt.</div>
+  </section>
+  <aside class="inspector">
+    <nav class="tabs">
+      <button data-tab="shot" class="on">Shot</button>
+      <button data-tab="review">Review</button>
+      <button data-tab="project">Project</button>
+    </nav>
+    <div id="tab-shot" class="tab on"></div>
+    <div id="tab-review" class="tab"></div>
+    <div id="tab-project" class="tab"></div>
+  </aside>
+</main>
+<footer class="timeline" id="timeline">
+  <div class="tl-ruler" id="ruler"></div>
+  <div class="tl-track" id="track"></div>
+  <div class="tl-keys" id="keys"></div>
+  <div class="tl-vo" id="vo"></div>
+  <div class="tl-head" id="playhead"><span></span></div>
+</footer>
+<dialog id="picker"><form method="dialog"><div class="pick-head">Choose a photo or clip<button value="cancel">✕</button></div><div id="pickGrid" class="pick-grid"></div></form></dialog>
+<audio id="audio" preload="auto"></audio>
+<script src="engine.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>

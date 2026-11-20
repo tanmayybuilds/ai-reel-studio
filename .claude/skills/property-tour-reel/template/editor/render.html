@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Tour render</title>
+<link rel="stylesheet" href="overlay.css">
+<style>html, body { margin: 0; background: #000; } </style>
+</head>
+<body>
+<div class="stage" id="stage"><canvas id="gl"></canvas><div class="overlay" id="overlay"></div></div>
+<script src="engine.js"></script>
+<script>
+(async () => {
+  try {
+    const [tour, media] = await Promise.all([fetch('/api/tour').then(r => r.json()), fetch('/api/media').then(r => r.json())]);
+    const engine = new TourEngine(document.getElementById('gl'), document.getElementById('overlay'));
+    await engine.load(tour, media);
+    document.getElementById('stage').style.setProperty('--accent', tour.accent || '#2EE6FF');
+    window.duration = engine.duration;
+    window.fps = tour.fps || 30;
+    window.seekTo = async t => { await engine.renderAt(t, true); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); };
+    await window.seekTo(0);
+    window.ready = true;
+  } catch (e) { window.renderError = String(e && e.stack || e); console.error(e); }
+})();
+</script>
+</body>
+</html>
