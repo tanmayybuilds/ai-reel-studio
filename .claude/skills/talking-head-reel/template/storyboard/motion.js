@@ -920,7 +920,8 @@ class Stage {
   seek(time) {
     const t = time + this.base;
     let active = this.layers[this.layers.length - 1];
-    for (const layer of this.layers) if (t >= layer.beat.start && t < layer.beat.end) active = layer;
+    // Beat starts are rounded to 1 ms, so allow half a millisecond: frame 893 at 29.7667 s belongs to a beat starting at 29.767.
+    for (const layer of this.layers) if (t + 5e-4 >= layer.beat.start && t + 5e-4 < layer.beat.end) active = layer;
     this.host.dataset.scene = active.beat.scene;
     for (const layer of this.layers) {
       const on = layer === active;

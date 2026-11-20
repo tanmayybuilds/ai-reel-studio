@@ -364,9 +364,11 @@ def main():
             continue
         name = MEDIA / f"{beat['id']}-scene.mp4"
         audio = ["-ss", str(beat["start"]), "-t", str(beat["duration"]), "-i", str(MEDIA / "dialogue-master.wav")]
+        # apad: the beat audio can be a fraction of a frame shorter than the picture, and -shortest would then drop
+        # the last video frame, so the concat drifts against dialogue-master.wav (lost 5 frames on the Intro Reel).
         enc = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{w}x{h}", "-r", str(FPS), "-i", "-",
                                 *audio, "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-                                "-movflags", "+faststart", "-c:a", "aac", "-b:a", "160k", "-shortest", str(name)], stdin=subprocess.PIPE)
+                                "-movflags", "+faststart", "-af", "apad", "-c:a", "aac", "-b:a", "160k", "-shortest", str(name)], stdin=subprocess.PIPE)
         index = 0
         for src_in, count in beat["frames"]:
             # A median face position per piece keeps the frame from wandering with small head moves.
