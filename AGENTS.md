@@ -100,7 +100,7 @@ Tell the user, briefly:
 
 ### The skills
 
-The workflow lives in two skills under `.claude/skills/`. Claude Code loads them automatically. **Other agents (Codex, Cursor, Gemini CLI, Copilot and so on): before an editing task, open the matching `SKILL.md` and follow it step by step,** reading each `references/*.md` file when the skill says to.
+The workflow lives in skills under `.claude/skills/`. Claude Code loads them automatically. **Other agents (Codex, Cursor, Gemini CLI, Copilot and so on): before an editing task, open the matching `SKILL.md` and follow it step by step,** reading each `references/*.md` file when the skill says to.
 
 | Skill | Use it for |
 | --- | --- |
