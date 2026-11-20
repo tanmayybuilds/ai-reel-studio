@@ -45,9 +45,10 @@ run("ffmpeg", "-y", "-i", MEDIA / "dialogue-master.wav", "-i", MEDIA / "sfx.wav"
 
 out = resolve(CONFIG["export"])
 out.parent.mkdir(parents=True, exist_ok=True)
+# setpts: the concat's video can start ~20 ms late (encoder edit list), which shifted the picture a frame behind the voice.
 # The overlay is rendered from sRGB screenshots, so convert with explicit BT.709 tags or colours shift.
 run("ffmpeg", "-y", "-i", rough, "-i", MEDIA / "overlay.mov", "-i", MEDIA / "final-audio.wav", "-filter_complex",
-    "[0:v][1:v]overlay=format=auto:shortest=1,scale=out_color_matrix=bt709:in_color_matrix=bt601:flags=accurate_rnd,format=yuv420p[v]",
+    "[0:v]setpts=PTS-STARTPTS[base];[1:v]setpts=PTS-STARTPTS[fx];[base][fx]overlay=format=auto:shortest=1,scale=out_color_matrix=bt709:in_color_matrix=bt601:flags=accurate_rnd,format=yuv420p[v]",
     "-map", "[v]", "-map", "2:a", "-r", FPS, "-c:v", "libx264", "-preset", "medium", "-crf", "18",
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-c:a", "aac", "-b:a", "256k", "-shortest", "-movflags", "+faststart", out)
 
