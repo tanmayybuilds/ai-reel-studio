@@ -137,6 +137,10 @@ The workflow lives in two skills under `.claude/skills/`. Claude Code loads them
 - **Python:** always use the venv Python. System Python lacks OpenCV and MediaPipe.
 - Run long renders in the background, and watch RAM on 8 GB machines (close other apps; renders use one worker).
 
+### Client portal
+
+`portal/` is a private website where clients send footage and review, approve and download their reels, while the studio runs everything from `/admin`. Start it with `cd portal && npm start` (http://localhost:4400). Read `portal/README.md` before changing it, and run `npm test` (21 end-to-end checks on throwaway data) after any change. Submitted footage lands in `Raw/<Client>/<YYYY-MM-DD Title>/` with a `brief.md` (links, chosen style, notes). Renders you put in `Exports/` can be sent to the client from the video's admin page.
+
 ### Keeping the studio healthy
 
 - If a script misbehaves on new footage, fix it in the skill's `template/`, not only in the project copy, so the next video benefits.
